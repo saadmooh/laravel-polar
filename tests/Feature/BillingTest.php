@@ -16,7 +16,7 @@ it('can generate a checkout for a billable', function () {
         ->once()
         ->andReturn($url);
 
-    $user = new User();
+    $user = new User;
     $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
@@ -37,7 +37,7 @@ it('can generate a checkout for a billable with metadata', function () {
         ->once()
         ->andReturn($url);
 
-    $user = new User();
+    $user = new User;
     $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
@@ -58,11 +58,11 @@ it('can not overwrite the customer id and type or subscription id for a billable
     $reservedKeywords = [
         'billable_id' => '123',
         'billable_type' => 'user',
-        'subscription_type' => 'premium'
+        'subscription_type' => 'premium',
     ];
 
     foreach ($reservedKeywords as $key => $value) {
-        $user = new User();
+        $user = new User;
         $user = Mockery::mock($user);
         $user->shouldReceive('checkout')
             ->once()
@@ -81,7 +81,7 @@ it('can not overwrite the customer id and type or subscription id for a billable
 it('can generate a customer portal link for a billable', function () {
     $portalUrl = 'https://sandbox.polar.sh/test-slug/portal?customer_session_token=TOKEN';
 
-    $user = new User();
+    $user = new User;
     $user = Mockery::mock($user);
     $user->shouldReceive('customerPortalUrl')
         ->once()
@@ -101,7 +101,8 @@ it('can determine the generic trial on a billable', function () {
         ->with([])
         ->andReturn($customer);
 
-    $user = new class extends User {
+    $user = new class extends User
+    {
         public function customer(): MorphOne
         {
             return $this->customerRelation;

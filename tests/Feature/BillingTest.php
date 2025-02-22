@@ -1,9 +1,12 @@
 <?php
 
+namespace Tests\Feature;
+
 use Danestves\LaravelPolar\Checkout;
 use Danestves\LaravelPolar\Customer;
+use Danestves\LaravelPolar\Tests\Fixtures\User;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
-use Tests\Fixtures\User;
+use Mockery;
 
 it('can generate a checkout for a billable', function () {
     $checkout = Mockery::mock(Checkout::class);
@@ -13,7 +16,8 @@ it('can generate a checkout for a billable', function () {
         ->once()
         ->andReturn($url);
 
-    $user = Mockery::mock(User::class)->makePartial();
+    $user = new User();
+    $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
         ->with(['product_123'])
@@ -27,13 +31,14 @@ it('can generate a checkout for a billable', function () {
 
 it('can generate a checkout for a billable with metadata', function () {
     $checkout = Mockery::mock(Checkout::class);
-    $url = 'hhttps://sandbox.polar.sh/checkout/polar_c_123';
+    $url = 'https://sandbox.polar.sh/checkout/polar_c_123';
 
     $checkout->shouldReceive('url')
         ->once()
         ->andReturn($url);
 
-    $user = Mockery::mock(User::class)->makePartial();
+    $user = new User();
+    $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
         ->with(
@@ -43,24 +48,31 @@ it('can generate a checkout for a billable with metadata', function () {
         )
         ->andReturn($checkout);
 
-    $result = $user->checkout(['product_123'], metadata: ['batch_id' => '789']);
+    $result = $user->checkout(['product_123'], null, metadata: ['batch_id' => '789']);
 
     expect($result->url())
         ->toBe($url);
 });
 
 it('can not overwrite the customer id and type or subscription id for a billable', function () {
-    $user = new User;
-
     $reservedKeywords = [
         'billable_id' => '123',
         'billable_type' => 'user',
-        'subscription_type' => 'premium',
+        'subscription_type' => 'premium'
     ];
 
     foreach ($reservedKeywords as $key => $value) {
+        $user = new User();
+        $user = Mockery::mock($user);
+        $user->shouldReceive('checkout')
+            ->once()
+            ->with(['product_123'], Mockery::any(), [$key => $value])
+            ->andThrow(new \InvalidArgumentException(
+                'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.'
+            ));
+
         expect(fn () => $user->checkout(['product_123'], metadata: [$key => $value]))
-            ->toThrow(
+            ->toThrow(\InvalidArgumentException::class,
                 'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.'
             );
     }
@@ -69,7 +81,8 @@ it('can not overwrite the customer id and type or subscription id for a billable
 it('can generate a customer portal link for a billable', function () {
     $portalUrl = 'https://sandbox.polar.sh/test-slug/portal?customer_session_token=TOKEN';
 
-    $user = Mockery::mock(User::class)->makePartial();
+    $user = new User();
+    $user = Mockery::mock($user);
     $user->shouldReceive('customerPortalUrl')
         ->once()
         ->andReturn($portalUrl);
@@ -88,10 +101,15 @@ it('can determine the generic trial on a billable', function () {
         ->with([])
         ->andReturn($customer);
 
-    $user = Mockery::mock(User::class)->makePartial();
-    $user->shouldReceive('customer')
-        ->once()
-        ->andReturn($customerRelation);
+    $user = new class extends User {
+        public function customer(): MorphOne
+        {
+            return $this->customerRelation;
+        }
+
+        public $customerRelation;
+    };
+    $user->customerRelation = $customerRelation;
 
     $result = $user->createAsCustomer();
 

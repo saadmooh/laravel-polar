@@ -12,10 +12,10 @@ trait ManagesCheckouts
      * Create a new checkout instance to sell a product with a custom price.
      *
      * @param  array<string>  $products
-     * @param  array<string, string|int>  $options
-     * @param  array<string, string|int|bool>  $metadata
+     * @param  array<string, string|int>|null  $options
+     * @param  array<string, string|int|bool>|null  $metadata
      */
-    public function charge(int $amount, array $products, array $options = [], array $metadata = []): Checkout
+    public function charge(int $amount, array $products, ?array $options = [], ?array $metadata = []): Checkout
     {
         return $this->checkout($products, array_merge($options, [
             'amount' => $amount,
@@ -26,10 +26,10 @@ trait ManagesCheckouts
      * Create a new checkout instance to sell a product.
      *
      * @param  array<string>  $products
-     * @param  array<string, string|int>  $options
-     * @param  array<string, string|int|bool>  $metadata
+     * @param  array<string, string|int>|null  $options
+     * @param  array<string, string|int|bool>|null  $metadata
      */
-    public function checkout(array $products, array $options = [], array $metadata = []): Checkout
+    public function checkout(array $products, ?array $options = [], ?array $metadata = []): Checkout
     {
         if (
             (array_key_exists('billable_id', $metadata) && isset($metadata['billable_id'])) ||

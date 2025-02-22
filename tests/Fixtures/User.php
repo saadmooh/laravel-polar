@@ -1,16 +1,19 @@
 <?php
 
-namespace Tests\Fixtures;
+namespace Danestves\LaravelPolar\Tests\Fixtures;
 
 use Danestves\LaravelPolar\Billable;
+use Danestves\LaravelPolar\Contracts\Billable as BillableContract;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Tests\Fixtures\Factories\UserFactory;
 
-class User extends Authenticatable
+class User extends Model implements BillableContract
 {
     use Billable;
     use HasFactory;
+
+    protected $guarded = [];
 
     public function getKey()
     {

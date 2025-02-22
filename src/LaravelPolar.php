@@ -1,0 +1,95 @@
+<?php
+
+namespace Danestves\LaravelPolar;
+
+use Danestves\LaravelPolar\Exceptions\PolarApiError;
+use Illuminate\Contracts\Container\BindingResolutionException;
+use Polar\Models\Components;
+use Polar\Models\Errors;
+use Polar\Models\Operations;
+use Polar\Polar;
+
+class LaravelPolar
+{
+    /**
+     * Create a checkout session.
+     *
+     * @throws PolarApiError
+     */
+    public function createCheckoutSession(Components\CheckoutProductsCreate $request): ?Components\Checkout
+    {
+        try {
+            $responses = $this->sdk()->checkouts->create(request: $request);
+
+            return $responses->checkout;
+        } catch (Errors\APIException $e) {
+            throw new PolarApiError($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Update a subscription.
+     *
+     * @throws PolarApiError
+     */
+    public function updateSubscription(string $subscriptionId, Components\SubscriptionUpdateProduct|Components\SubscriptionCancel $request): ?Components\Subscription
+    {
+        try {
+            $responses = $this->sdk()->subscriptions->update(id: $subscriptionId, subscriptionUpdate: $request);
+
+            return $responses->subscription;
+        } catch (Errors\APIException $e) {
+            throw new PolarApiError($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * List all products.
+     *
+     * @throws PolarApiError
+     */
+    public function listProducts(Operations\ProductsListRequest $request): ?Components\ListResourceProduct
+    {
+        try {
+            $responses = $this->sdk()->products->list(request: $request);
+
+            foreach ($responses as $response) {
+                if ($response->statusCode === 200) {
+                    return $response->listResourceProduct;
+                }
+            }
+        } catch (Errors\APIException $e) {
+            throw new PolarApiError($e->getMessage(), 400);
+        }
+
+    }
+
+    /**
+     * Create a customer session.
+     *
+     * @throws PolarApiError
+     */
+    public function createCustomerSession(Components\CustomerSessionCreate $request): ?Components\CustomerSession
+    {
+        try {
+            $responses = $this->sdk()->customerSessions->create(request: $request);
+
+            return $responses->customerSession;
+        } catch (Errors\APIException $e) {
+            throw new PolarApiError($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * Get the Polar SDK instance.
+     *
+     * @throws BindingResolutionException
+     */
+    private function sdk(): Polar
+    {
+        return Polar::builder()
+            ->setSecurity(config('polar.access_token'))
+            ->setServer(app()->environment('production') ? 'production' : 'sandbox')
+            ->build();
+    }
+}

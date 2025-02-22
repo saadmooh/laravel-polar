@@ -15,8 +15,18 @@
     cacheDirectory=".phpunit.cache"
     backupStaticProperties="false"
 >
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="POLAR_ACCESS_TOKEN" value="test_key"/>
+        <env name="POLAR_WEBHOOK_SECRET" value="test_secret"/>
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+    </php>
     <testsuites>
-        <testsuite name="VendorName Test Suite">
+        <testsuite name="Danestves Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>

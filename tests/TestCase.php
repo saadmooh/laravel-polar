@@ -1,26 +1,32 @@
 <?php
 
-namespace VendorName\Skeleton\Tests;
+namespace Danestves\LaravelPolar\Tests;
 
+use Danestves\LaravelPolar\LaravelPolarServiceProvider;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Orchestra\Testbench\Concerns\WithLaravelMigrations;
 use Orchestra\Testbench\TestCase as Orchestra;
-use VendorName\Skeleton\SkeletonServiceProvider;
 
 class TestCase extends Orchestra
 {
+    use WithLaravelMigrations;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'VendorName\\Skeleton\\Database\\Factories\\'.class_basename($modelName).'Factory'
+            fn (string $modelName) => 'Danestves\\LaravelPolar\\Database\\Factories\\'.class_basename($modelName).'Factory'
         );
+
+        // Register package view namespace
+        $this->app['view']->addNamespace('polar', __DIR__.'/../resources/views');
     }
 
     protected function getPackageProviders($app)
     {
         return [
-            SkeletonServiceProvider::class,
+            LaravelPolarServiceProvider::class,
         ];
     }
 
@@ -28,10 +34,10 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
-        /*
-         foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/database/migrations') as $migration) {
+        $app['config']->set('polar', require __DIR__.'/../config/polar.php');
+
+        foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__.'/../database/migrations') as $migration) {
             (include $migration->getRealPath())->up();
-         }
-         */
+        }
     }
 }

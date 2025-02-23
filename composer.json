@@ -2,10 +2,12 @@
     "name": "danestves/laravel-polar",
     "description": "A package to easily integrate your Laravel application with Polar.sh",
     "keywords": [
-        "danestves",
         "laravel",
-        "laravel-polar"
+        "polar",
+        "billing",
+        "subscription"
     ],
+    "version": "0.1.0",
     "homepage": "https://github.com/danestves/laravel-polar",
     "license": "MIT",
     "authors": [

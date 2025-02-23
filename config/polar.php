@@ -6,8 +6,9 @@ return [
     | Polar Access Token
     |--------------------------------------------------------------------------
     |
-    | The Polar access token is used to authenticate with the Polar API.You can find your access token in
-    | the Polar dashboard > Settings under the "Developers" section.
+    | The Polar access token is used to authenticate with the Polar API.
+    | You can find your access token in the Polar dashboard > Settings
+    | under the "Developers" section.
     |
     */
     'access_token' => env('POLAR_ACCESS_TOKEN'),

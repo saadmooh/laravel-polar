@@ -267,7 +267,66 @@ Now we can use the button like this:
 <x-polar-button :checkout="$checkout" />
 ```
 
-The component accepts the normal props that a link element accepts.
+The component accepts the normal props that a link element accepts. You can change the theme of the embedded checkout by using the following prop:
+
+```blade
+<x-polar-button :checkout="$checkout" data-polar-checkout-theme="dark" />
+```
+
+It defaults to light theme, so you only need to pass the prop if you want to change it.
+
+### Prefill Customer Information
+
+You can override the user data using the following methods in your models provided by the `Billable` trait.
+
+```php
+public function polarName(): ?string; // default: $model->name
+public function polarEmail(): ?string; // default: $model->email
+```
+
+### Redirects After Purchase
+
+You can redirect the user to a custom page after the purchase using the `withSuccessUrl` method:
+
+```php
+$request->user()->checkout('variant-id')
+    ->withSuccessUrl(url('/success'));
+```
+
+You can also add the `checkout_id={CHECKOUT_ID}` query parameter to the URL to retrieve the checkout session id:
+
+```php
+$request->user()->checkout('variant-id')
+    ->withSuccessUrl(url('/success?checkout_id={CHECKOUT_ID}'));
+```
+
+### Custom metadata and customer metadata
+
+You can add custom metadata to the checkout session using the `withMetadata` method:
+
+```php
+$request->user()->checkout('variant-id')
+    ->withMetadata(['key' => 'value']);
+```
+
+You can also add customer metadata to the checkout session using the `withCustomerMetadata` method:
+
+```php
+$request->user()->checkout('variant-id')
+    ->withCustomerMetadata(['key' => 'value']);
+```
+
+These will then be available in the relevant webhooks for you.
+
+#### Reserved Keywords
+
+When working with custom data, this library has a few reserved terms.
+
+- `billable_id`
+- `billable_type`
+- `subscription_type`
+
+Using any of these will result in an exception being thrown.
 
 ## Testing
 

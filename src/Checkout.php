@@ -195,7 +195,7 @@ class Checkout implements Responsable
     }
 
     /**
-     * URL where the customer will be redirected after a successful payment.You can add the `checkout_id={CHECKOUT_ID}` query parameter to retrieve the checkout session id.
+     * URL where the customer will be redirected after a successful payment. You can add the `checkout_id={CHECKOUT_ID}` query parameter to retrieve the checkout session id.
      */
     public function withSuccessUrl(string $successUrl): self
     {

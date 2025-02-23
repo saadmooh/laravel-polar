@@ -2,6 +2,7 @@
 
 namespace Danestves\LaravelPolar\Concerns;
 
+use Danestves\LaravelPolar\Facades\LaravelPolar;
 use Danestves\LaravelPolar\Subscription;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -14,7 +15,7 @@ trait ManagesSubscription
      */
     public function subscriptions(): MorphMany
     {
-        return $this->morphMany(Subscription::class, 'billable')->orderByDesc('created_at');
+        return $this->morphMany(LaravelPolar::$subscriptionModel, 'billable')->orderByDesc('created_at');
     }
 
     /**

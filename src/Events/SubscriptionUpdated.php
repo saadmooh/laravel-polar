@@ -9,7 +9,8 @@ use Illuminate\Queue\SerializesModels;
 
 final class SubscriptionUpdated
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * Create a new event instance.
@@ -28,6 +29,6 @@ final class SubscriptionUpdated
          *
          * @var array<string, mixed>
          */
-        public array $payload
+        public array $payload,
     ) {}
 }

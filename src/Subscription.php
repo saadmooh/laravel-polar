@@ -24,30 +24,7 @@ use Polar\Models\Components;
  * @property \Carbon\CarbonInterface|null $ends_at
  * @property \Carbon\CarbonInterface|null $created_at
  * @property \Carbon\CarbonInterface|null $updated_at
- * @property-read \Danestves\LaravelPolar\Contracts\Billable $billable
- *
- * @method static Builder<static>|Subscription active()
- * @method static Builder<static>|Subscription cancelled()
- * @method static Builder<static>|Subscription incomplete()
- * @method static Builder<static>|Subscription incompleteExpired()
- * @method static Builder<static>|Subscription newModelQuery()
- * @method static Builder<static>|Subscription newQuery()
- * @method static Builder<static>|Subscription onTrial()
- * @method static Builder<static>|Subscription pastDue()
- * @method static Builder<static>|Subscription query()
- * @method static Builder<static>|Subscription unpaid()
- * @method static Builder<static>|Subscription whereBillableId($value)
- * @method static Builder<static>|Subscription whereBillableType($value)
- * @method static Builder<static>|Subscription whereCreatedAt($value)
- * @method static Builder<static>|Subscription whereCurrentPeriodEnd($value)
- * @method static Builder<static>|Subscription whereEndsAt($value)
- * @method static Builder<static>|Subscription whereId($value)
- * @method static Builder<static>|Subscription wherePolarId($value)
- * @method static Builder<static>|Subscription wherePriceId($value)
- * @method static Builder<static>|Subscription whereProductId($value)
- * @method static Builder<static>|Subscription whereStatus($value)
- * @method static Builder<static>|Subscription whereType($value)
- * @method static Builder<static>|Subscription whereUpdatedAt($value)
+ * @property \Danestves\LaravelPolar\Contracts\Billable $billable
  *
  * @mixin \Eloquent
  */
@@ -78,7 +55,7 @@ class Subscription extends Model
      */
     public function valid(): bool
     {
-        return $this->active() || $this->onTrial() || $this->pastDue() || $this->onGracePeriod(); // @phpstan-ignore-line
+        return $this->active() || $this->onTrial() || $this->pastDue() || $this->onGracePeriod();
     }
 
     /**
@@ -212,7 +189,7 @@ class Subscription extends Model
      */
     public function onGracePeriod(): bool
     {
-        return $this->cancelled() && $this->ends_at?->isFuture(); // @phpstan-ignore-line
+        return $this->cancelled() && $this->ends_at?->isFuture();
     }
 
     /**

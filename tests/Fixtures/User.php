@@ -27,6 +27,6 @@ class User extends Model implements BillableContract
 
     protected static function newFactory()
     {
-        return new UserFactory;
+        return new UserFactory();
     }
 }

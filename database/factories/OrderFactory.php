@@ -7,29 +7,48 @@ use Danestves\LaravelPolar\Enums\OrderStatus;
 use Danestves\LaravelPolar\Order;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
+/** @extends Factory<Order> */
 class OrderFactory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
+     *
+     * @var class-string<Order>
      */
     protected $model = Order::class;
 
     /**
      * Define the model's default state.
      *
-     * @return array<string, mixed>
+     * @return array{
+     *     billable_id: int,
+     *     billable_type: string,
+     *     polar_id: string,
+     *     status: OrderStatus,
+     *     amount: int,
+     *     tax_amount: int,
+     *     refunded_amount: int,
+     *     refunded_tax_amount: int,
+     *     currency: string,
+     *     billing_reason: string,
+     *     customer_id: string,
+     *     product_id: string,
+     *     product_price_id: string,
+     *     refunded_at: \Illuminate\Support\Carbon|null,
+     *     ordered_at: \Illuminate\Support\Carbon,
+     * }
      */
     public function definition(): array
     {
         return [
-            'billable_id' => rand(1, 1000),
+            'billable_id' => $this->faker->randomNumber(),
             'billable_type' => 'App\\Models\\User',
             'polar_id' => $this->faker->uuid,
             'status' => OrderStatus::Paid,
-            'amount' => rand(50, 1000),
-            'tax_amount' => rand(1, 50),
-            'refunded_amount' => rand(50, 1000),
-            'refunded_tax_amount' => rand(1, 50),
+            'amount' => $this->faker->randomNumber(),
+            'tax_amount' => $this->faker->randomNumber(),
+            'refunded_amount' => $this->faker->randomNumber(),
+            'refunded_tax_amount' => $this->faker->randomNumber(),
             'currency' => 'USD',
             'billing_reason' => $this->faker->randomElement(['purchase', 'subscription_create', 'subscription_cycle', 'subscription_update']),
             'customer_id' => $this->faker->uuid,

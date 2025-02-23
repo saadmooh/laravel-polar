@@ -2,7 +2,6 @@
 
 use Danestves\LaravelPolar\Checkout;
 use Illuminate\Http\RedirectResponse;
-use Mockery;
 
 it('can initiate a new checkout', function () {
     $checkoutUrl = 'https://sandbox.polar.sh/checkout/polar_c_123';

@@ -16,7 +16,7 @@ it('can generate a checkout for a billable', function () {
         ->once()
         ->andReturn($url);
 
-    $user = new User;
+    $user = new User();
     $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
@@ -37,14 +37,14 @@ it('can generate a checkout for a billable with metadata', function () {
         ->once()
         ->andReturn($url);
 
-    $user = new User;
+    $user = new User();
     $user = Mockery::mock($user);
     $user->shouldReceive('checkout')
         ->once()
         ->with(
             ['product_123'],
             Mockery::any(), // options
-            ['batch_id' => '789'] // metadata
+            ['batch_id' => '789'], // metadata
         )
         ->andReturn($checkout);
 
@@ -62,18 +62,19 @@ it('can not overwrite the customer id and type or subscription id for a billable
     ];
 
     foreach ($reservedKeywords as $key => $value) {
-        $user = new User;
+        $user = new User();
         $user = Mockery::mock($user);
         $user->shouldReceive('checkout')
             ->once()
             ->with(['product_123'], Mockery::any(), [$key => $value])
             ->andThrow(new \InvalidArgumentException(
-                'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.'
+                'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.',
             ));
 
-        expect(fn () => $user->checkout(['product_123'], metadata: [$key => $value]))
-            ->toThrow(\InvalidArgumentException::class,
-                'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.'
+        expect(fn() => $user->checkout(['product_123'], metadata: [$key => $value]))
+            ->toThrow(
+                \InvalidArgumentException::class,
+                'You cannot use "billable_id", "billable_type" or "subscription_type" as custom data keys because these are reserved keywords.',
             );
     }
 });
@@ -81,7 +82,7 @@ it('can not overwrite the customer id and type or subscription id for a billable
 it('can generate a customer portal link for a billable', function () {
     $portalUrl = 'https://sandbox.polar.sh/test-slug/portal?customer_session_token=TOKEN';
 
-    $user = new User;
+    $user = new User();
     $user = Mockery::mock($user);
     $user->shouldReceive('customerPortalUrl')
         ->once()
@@ -101,8 +102,7 @@ it('can determine the generic trial on a billable', function () {
         ->with([])
         ->andReturn($customer);
 
-    $user = new class extends User
-    {
+    $user = new class extends User {
         public function customer(): MorphOne
         {
             return $this->customerRelation;

@@ -7,24 +7,34 @@ use Danestves\LaravelPolar\Subscription;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Polar\Models\Components;
 
+/** @extends Factory<Subscription> */
 class SubscriptionFactory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
      *
-     * @var string
+     * @var class-string<Subscription>
      */
     protected $model = Subscription::class;
 
     /**
      * Define the model's default state.
      *
-     * @return array<string, mixed>
+     * @return array{
+     *     billable_id: int,
+     *     billable_type: string,
+     *     type: string,
+     *     polar_id: string,
+     *     status: \Polar\Models\Components\SubscriptionStatus,
+     *     product_id: string,
+     *     price_id: string,
+     *     current_period_end: \Carbon\CarbonInterface
+     * }
      */
     public function definition(): array
     {
         return [
-            'billable_id' => rand(1, 1000),
+            'billable_id' => $this->faker->randomNumber(),
             'billable_type' => 'App\\Models\\User',
             'type' => 'default',
             'polar_id' => $this->faker->uuid,

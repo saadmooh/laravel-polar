@@ -9,7 +9,8 @@ use Illuminate\Queue\SerializesModels;
 
 final class OrderUpdated
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * Create a new event instance.
@@ -30,6 +31,6 @@ final class OrderUpdated
         /**
          * Whether the order is refunded.
          */
-        public bool $isRefunded
+        public bool $isRefunded,
     ) {}
 }

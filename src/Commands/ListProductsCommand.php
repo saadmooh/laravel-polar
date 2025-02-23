@@ -58,8 +58,8 @@ class ListProductsCommand extends Command
         $this->validate();
 
         $productsResponse = spin(
-            fn () => LaravelPolar::listProducts(
-                new Operations\ProductsListRequest,
+            fn() => LaravelPolar::listProducts(
+                new Operations\ProductsListRequest(),
             ),
             '⚪ Fetching products information...',
         );

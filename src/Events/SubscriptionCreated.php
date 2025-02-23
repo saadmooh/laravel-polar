@@ -9,7 +9,8 @@ use Illuminate\Queue\SerializesModels;
 
 final class SubscriptionCreated
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * Create a new event instance.
@@ -26,6 +27,6 @@ final class SubscriptionCreated
         /**
          * The payload array.
          */
-        public array $payload
+        public array $payload,
     ) {}
 }

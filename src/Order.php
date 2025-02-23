@@ -27,32 +27,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property \Carbon\CarbonInterface $ordered_at
  * @property \Carbon\CarbonInterface|null $created_at
  * @property \Carbon\CarbonInterface|null $updated_at
- * @property-read \Danestves\LaravelPolar\Contracts\Billable $billable
- *
- * @method static Builder<static>|Order newModelQuery()
- * @method static Builder<static>|Order newQuery()
- * @method static Builder<static>|Order query()
- * @method static Builder<static>|Order whereAmount($value)
- * @method static Builder<static>|Order whereBillableId($value)
- * @method static Builder<static>|Order whereBillableType($value)
- * @method static Builder<static>|Order whereBillingReason($value)
- * @method static Builder<static>|Order whereCreatedAt($value)
- * @method static Builder<static>|Order whereCurrency($value)
- * @method static Builder<static>|Order whereCustomerId($value)
- * @method static Builder<static>|Order whereId($value)
- * @method static Builder<static>|Order whereOrderedAt($value)
- * @method static Builder<static>|Order wherePolarId($value)
- * @method static Builder<static>|Order whereProductId($value)
- * @method static Builder<static>|Order whereProductPriceId($value)
- * @method static Builder<static>|Order whereRefundedAmount($value)
- * @method static Builder<static>|Order whereRefundedAt($value)
- * @method static Builder<static>|Order whereRefundedTaxAmount($value)
- * @method static Builder<static>|Order whereStatus($value)
- * @method static Builder<static>|Order whereTaxAmount($value)
- * @method static Builder<static>|Order whereUpdatedAt($value)
- * @method static Builder<static>|Order paid()
- * @method static Builder<static>|Order partiallyRefunded()
- * @method static Builder<static>|Order refunded()
+ * @property \Danestves\LaravelPolar\Contracts\Billable $billable
  *
  * @mixin \Eloquent
  */

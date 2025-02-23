@@ -53,7 +53,7 @@ class Checkout implements Responsable
     /**
      * @param  array<string>  $products
      */
-    public static function make(array $products): static
+    public static function make(array $products): self
     {
         return new self($products);
     }

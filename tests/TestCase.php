@@ -16,11 +16,10 @@ class TestCase extends Orchestra
         parent::setUp();
 
         Factory::guessFactoryNamesUsing(
-            fn (string $modelName) => 'Danestves\\LaravelPolar\\Database\\Factories\\'.class_basename($modelName).'Factory'
+            fn(string $modelName) => 'Danestves\\LaravelPolar\\Database\\Factories\\' . class_basename($modelName) . 'Factory',
         );
 
-        // Register package view namespace
-        $this->app['view']->addNamespace('polar', __DIR__.'/../resources/views');
+        $this->app['view']->addNamespace('polar', __DIR__ . '/../resources/views');
     }
 
     protected function getPackageProviders($app)
@@ -34,9 +33,9 @@ class TestCase extends Orchestra
     {
         config()->set('database.default', 'testing');
 
-        $app['config']->set('polar', require __DIR__.'/../config/polar.php');
+        $app['config']->set('polar', require __DIR__ . '/../config/polar.php');
 
-        foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__.'/../database/migrations') as $migration) {
+        foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
             (include $migration->getRealPath())->up();
         }
     }

@@ -5,6 +5,7 @@ namespace Danestves\LaravelPolar\Concerns;
 use Danestves\LaravelPolar\Customer;
 use Danestves\LaravelPolar\Exceptions\InvalidCustomer;
 use Danestves\LaravelPolar\Exceptions\PolarApiError;
+use Danestves\LaravelPolar\Facades\LaravelPolar;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Http\RedirectResponse;
 use Polar\Models\Components;
@@ -28,7 +29,7 @@ trait ManagesCustomer
      */
     public function customer(): MorphOne
     {
-        return $this->morphOne(Customer::class, 'billable');
+        return $this->morphOne(LaravelPolar::$customerModel, 'billable');
     }
 
     /**

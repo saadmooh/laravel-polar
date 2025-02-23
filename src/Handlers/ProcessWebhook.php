@@ -3,7 +3,6 @@
 namespace Danestves\LaravelPolar\Handlers;
 
 use Carbon\Carbon;
-use Danestves\LaravelPolar\Customer;
 use Danestves\LaravelPolar\Enums\OrderStatus;
 use Danestves\LaravelPolar\Events\BenefitGrantCreated;
 use Danestves\LaravelPolar\Events\BenefitGrantRevoked;
@@ -16,6 +15,7 @@ use Danestves\LaravelPolar\Events\SubscriptionCreated;
 use Danestves\LaravelPolar\Events\SubscriptionRevoked;
 use Danestves\LaravelPolar\Events\SubscriptionUpdated;
 use Danestves\LaravelPolar\Exceptions\InvalidMetadataPayload;
+use Danestves\LaravelPolar\LaravelPolar;
 use Danestves\LaravelPolar\Order;
 use Danestves\LaravelPolar\Subscription;
 use Illuminate\Support\Facades\Log;
@@ -84,7 +84,7 @@ final class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($payload);
 
-        if (! ($order = $this->findOrder($payload['id'])) instanceof Order) {
+        if (! ($order = $this->findOrder($payload['id'])) instanceof LaravelPolar::$orderModel) {
             return;
         }
 
@@ -120,8 +120,8 @@ final class ProcessWebhook extends ProcessWebhookJob
             'ends_at' => $payload['ends_at'] ? Carbon::make($payload['ends_at']) : null,
         ]);
 
-        if (is_null($billable->customer->polar_id)) {
-            $billable->customer->update(['polar_id' => $payload['customer_id']]);
+        if (is_null($billable->customer->polar_id)) { // @phpstan-ignore-line property.notFound - the property is found in the billable model
+            $billable->customer->update(['polar_id' => $payload['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
         }
 
         SubscriptionCreated::dispatch($billable, $subscription, $payload);
@@ -134,7 +134,7 @@ final class ProcessWebhook extends ProcessWebhookJob
      */
     private function handleSubscriptionUpdated(array $payload): void
     {
-        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof Subscription) {
+        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
@@ -150,7 +150,7 @@ final class ProcessWebhook extends ProcessWebhookJob
      */
     private function handleSubscriptionActive(array $payload): void
     {
-        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof Subscription) {
+        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
@@ -166,7 +166,7 @@ final class ProcessWebhook extends ProcessWebhookJob
      */
     private function handleSubscriptionCanceled(array $payload): void
     {
-        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof Subscription) {
+        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
@@ -182,7 +182,7 @@ final class ProcessWebhook extends ProcessWebhookJob
      */
     private function handleSubscriptionRevoked(array $payload): void
     {
-        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof Subscription) {
+        if (! ($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
@@ -240,7 +240,7 @@ final class ProcessWebhook extends ProcessWebhookJob
         $metadata = $payload['data']['metadata'] ?? null;
 
         if (! isset($metadata) || ! is_array($metadata) || ! isset($metadata['billable_id'], $metadata['billable_type'])) {
-            throw new InvalidMetadataPayload;
+            throw new InvalidMetadataPayload();
         }
 
         return $this->findOrCreateCustomer(
@@ -257,7 +257,7 @@ final class ProcessWebhook extends ProcessWebhookJob
      */
     private function findOrCreateCustomer(int|string $billableId, string $billableType, string $customerId)
     {
-        return Customer::firstOrCreate([
+        return LaravelPolar::$customerModel::firstOrCreate([
             'billable_id' => $billableId,
             'billable_type' => $billableType,
         ], [
@@ -267,11 +267,11 @@ final class ProcessWebhook extends ProcessWebhookJob
 
     private function findSubscription(string $subscriptionId): ?Subscription
     {
-        return Subscription::firstWhere('polar_id', $subscriptionId);
+        return LaravelPolar::$subscriptionModel::firstWhere('polar_id', $subscriptionId);
     }
 
     private function findOrder(string $orderId): ?Order
     {
-        return Order::firstWhere('polar_id', $orderId);
+        return LaravelPolar::$orderModel::firstWhere('polar_id', $orderId);
     }
 }

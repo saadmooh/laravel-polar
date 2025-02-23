@@ -12,6 +12,21 @@ use Polar\Polar;
 class LaravelPolar
 {
     /**
+     * The customer model class name.
+     */
+    public static string $customerModel = Customer::class;
+
+    /**
+     * The subscription model class name.
+     */
+    public static string $subscriptionModel = Subscription::class;
+
+    /**
+     * The order model class name.
+     */
+    public static string $orderModel = Order::class;
+
+    /**
      * Create a checkout session.
      *
      * @throws PolarApiError
@@ -58,10 +73,11 @@ class LaravelPolar
                     return $response->listResourceProduct;
                 }
             }
+
+            return null;
         } catch (Errors\APIException $e) {
             throw new PolarApiError($e->getMessage(), 400);
         }
-
     }
 
     /**
@@ -85,11 +101,35 @@ class LaravelPolar
      *
      * @throws BindingResolutionException
      */
-    private function sdk(): Polar
+    private static function sdk(): Polar
     {
         return Polar::builder()
             ->setSecurity(config('polar.access_token'))
             ->setServer(app()->environment('production') ? 'production' : 'sandbox')
             ->build();
+    }
+
+    /**
+     * Set the customer model class name.
+     */
+    public static function useCustomerModel(string $customerModel): void
+    {
+        static::$customerModel = $customerModel;
+    }
+
+    /**
+     * Set the subscription model class name.
+     */
+    public static function useSubscriptionModel(string $subscriptionModel): void
+    {
+        static::$subscriptionModel = $subscriptionModel;
+    }
+
+    /**
+     * Set the order model class name.
+     */
+    public static function useOrderModel(string $orderModel): void
+    {
+        static::$orderModel = $orderModel;
     }
 }

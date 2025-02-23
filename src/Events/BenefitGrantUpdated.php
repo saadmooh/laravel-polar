@@ -8,7 +8,8 @@ use Illuminate\Queue\SerializesModels;
 
 final class BenefitGrantUpdated
 {
-    use Dispatchable, SerializesModels;
+    use Dispatchable;
+    use SerializesModels;
 
     /**
      * Create a new event instance.
@@ -23,6 +24,6 @@ final class BenefitGrantUpdated
          *
          * @var array<string, mixed>
          */
-        public array $payload
+        public array $payload,
     ) {}
 }

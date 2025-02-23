@@ -3,6 +3,7 @@
 namespace Danestves\LaravelPolar\Concerns;
 
 use Danestves\LaravelPolar\Enums\OrderStatus;
+use Danestves\LaravelPolar\Facades\LaravelPolar;
 use Danestves\LaravelPolar\Order;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -15,7 +16,7 @@ trait ManagesOrders
      */
     public function orders(): MorphMany
     {
-        return $this->morphMany(Order::class, 'billable')->orderByDesc('created_at');
+        return $this->morphMany(LaravelPolar::$orderModel, 'billable')->orderByDesc('created_at');
     }
 
     /**

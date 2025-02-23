@@ -9,6 +9,6 @@ final class InvalidCustomer extends Exception
 {
     public static function notYetCreated(Model $owner): self
     {
-        return new self(class_basename($owner).' is not a Polar customer yet.');
+        return new self(class_basename($owner) . ' is not a Polar customer yet.');
     }
 }

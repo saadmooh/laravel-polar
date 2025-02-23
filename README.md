@@ -624,6 +624,11 @@ $user->subscription()->resume();
 
 When a cancelled subscription approaches the end of its grace period, it becomes expired and cannot be resumed.
 
+#### Subscription Trials
+
+> [!NOTE]
+> Coming soon.
+
 ### Handling Webhooks
 
 Polar can send webhooks to your app, allowing you to react. By default, this package handles the majority of the work for you. If you have properly configured webhooks, it will listen for incoming events and update your database accordingly. We recommend activating all event kinds so you may easily upgrade in the future.

@@ -20,6 +20,7 @@ use Polar\Models\Components;
  * @property string $product_id
  * @property string $price_id
  * @property \Carbon\CarbonInterface|null $current_period_end
+ * @property \Carbon\CarbonInterface|null $trial_ends_at
  * @property \Carbon\CarbonInterface|null $ends_at
  * @property \Carbon\CarbonInterface|null $created_at
  * @property \Carbon\CarbonInterface|null $updated_at
@@ -109,6 +110,14 @@ class Subscription extends Model
     public function scopeOnTrial(Builder $query): void
     {
         $query->where('status', Components\SubscriptionStatus::Trialing);
+    }
+
+    /**
+     * Determine if the subscription's trial has expired.
+     */
+    public function hasExpiredTrial(): bool
+    {
+        return $this->trial_ends_at && $this->trial_ends_at->isPast();
     }
 
     /**

@@ -84,13 +84,12 @@ trait ManagesCheckouts // @phpstan-ignore-line trait.unused - ManagesCheckouts i
     /**
      * Subscribe the customer to a new plan variant.
      *
-     * @param  array<string>  $products
      * @param  array<string, string|int>|null  $options
      * @param  array<string, string|int|bool>|null  $metadata
      */
-    public function subscribe(array $products, string $type = "default", ?array $options = [], ?array $metadata = []): Checkout
+    public function subscribe(string $productId, string $type = "default", ?array $options = [], ?array $metadata = []): Checkout
     {
-        return $this->checkout($products, $options, array_merge($metadata, [
+        return $this->checkout([$productId], $options, array_merge($metadata, [
             'subscription_type' => $type,
         ]));
     }

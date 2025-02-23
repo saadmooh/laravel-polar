@@ -433,7 +433,7 @@ Starting a subscription is simple. For this, we require our product's variant id
 use Illuminate\Http\Request;
 
 Route::get('/subscribe', function (Request $request) {
-    return $request->user()->subscribe(['product_id_123']);
+    return $request->user()->subscribe('product_id_123');
 });
 ```
 

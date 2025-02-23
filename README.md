@@ -348,6 +348,90 @@ Optionally, you can obtain the signed customer portal URL directly:
 $url = $user->customerPortalUrl();
 ```
 
+### Orders
+
+#### Retrieving Orders
+
+You can retrieve orders by using the `orders` relationship on the billable model:
+
+```blade
+<table>
+    @foreach ($user->orders as $order)
+        <td>{{ $order->ordered_at->toFormattedDateString() }}</td>
+        <td>{{ $order->polar_id }}</td>
+        <td>{{ $order->amount }}</td>
+        <td>{{ $order->tax_amount }}</td>
+        <td>{{ $order->refunded_amount }}</td>
+        <td>{{ $order->refunded_tax_amount }}</td>
+        <td>{{ $order->currency }}</td>
+        <!-- Add more columns as needed -->
+    @endforeach
+</table>
+```
+
+#### Check order status
+
+You can check the status of an order by using the `status` attribute:
+
+```php
+$order->status;
+```
+
+Or you can use some of the helper methods offers by the `Order` model:
+
+```php
+$order->paid();
+```
+
+Aside from that, you can run two other checks: refunded, and partially refunded.  If the order is refunded, you can utilize the refunded_at timestamp:
+
+```blade
+@if ($order->refunded())
+    Order {{ $order->polar_id }} was refunded on {{ $order->refunded_at->toFormattedDateString() }}
+@endif
+```
+
+You may also see if an order was for a certain product:
+
+```php
+if ($order->hasProduct('product_id_123')) {
+    // ...
+}
+```
+
+Or for an specific price:
+
+```php
+if ($order->hasPrice('price_id_123')) {
+    // ...
+}
+```
+
+Furthermore, you can check if a consumer has purchased a specific product:
+
+```php
+if ($user->hasPurchasedProduct('product_id_123')) {
+    // ...
+}
+```
+
+Or for an specific price:
+
+```php
+if ($user->hasPurchasedPrice('price_id_123')) {
+    // ...
+}
+```
+
+These two checks will verify that the correct product or price was purchased and paid for. This is also beneficial if you offer a functionality in your app, such as lifetime access.
+
+#### Refunding Orders
+
+You can refund an order by using the `refund` method:
+
+```php
+$order->refund();
+```
 ## Testing
 
 ```bash

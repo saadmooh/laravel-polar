@@ -423,15 +423,277 @@ if ($user->hasPurchasedPrice('price_id_123')) {
 }
 ```
 
-These two checks will verify that the correct product or price was purchased and paid for. This is also beneficial if you offer a functionality in your app, such as lifetime access.
+### Subscriptions
 
-#### Refunding Orders
+#### Creating Subscriptions
 
-You can refund an order by using the `refund` method:
+Starting a subscription is simple. For this, we require our product's variant id. Copy the product id and start a new subscription checkout using your billable model:
 
 ```php
-$order->refund();
+use Illuminate\Http\Request;
+
+Route::get('/subscribe', function (Request $request) {
+    return $request->user()->subscribe(['product_id_123']);
+});
 ```
+
+When a customer completes their checkout, the incoming `SubscriptionCreated` event webhook connects it to your billable model in the database. You may then get the subscription from your billable model:
+
+```php
+$subscription = $user->subscription();
+```
+
+#### Checking Subscription Status
+
+Once a consumer has subscribed to your services, you can use a variety of methods to check on the status of their subscription. The most basic example is to check if a customer has a valid subscription.
+
+```php
+if ($user->subscribed()) {
+    // ...
+}
+```
+
+You can utilize this in a variety of locations in your app, such as middleware, rules, and so on, to provide services. To determine whether an individual subscription is valid, you can use the `valid` method:
+
+```php
+if ($user->subscription()->valid()) {
+    // ...
+}
+```
+
+This method, like the subscribed method, returns true if your membership is active, on trial, past due, or cancelled during its grace period.
+
+You may also check if a subscription is for a certain product:
+
+```php
+if ($user->subscription()->hasProduct('product_id_123')) {
+    // ...
+}
+```
+
+Or for a certain price:
+
+```php
+if ($user->subscription()->hasPrice('price_id_123')) {
+    // ...
+}
+```
+
+If you wish to check if a subscription is on a specific price while being valid, you can use:
+
+```php
+if ($user->subscribedToPrice('price_id_123')) {
+    // ...
+}
+```
+
+Alternatively, if you use different [subscription types](#multiple-subscriptions), you can pass a type as an additional parameter:
+
+```php
+if ($user->subscribed('swimming')) {
+    // ...
+}
+
+if ($user->subscribedToPrice('price_id_123', 'swimming')) {
+    // ...
+}
+```
+
+#### Cancelled Status
+
+To see if a user has cancelled their subscription, you can use the cancelled method:
+
+```php
+if ($user->subscription()->cancelled()) {
+    // ...
+}
+```
+
+When they are in their grace period, you can utilize the `onGracePeriod` check.
+
+```php
+if ($user->subscription()->onGracePeriod()) {
+    // ...
+}
+```
+
+#### Past Due Status
+
+If a recurring payment fails, the subscription will become past due.  This indicates that the subscription is still valid, but your customer's payments will be retried in two weeks.
+
+```php
+if ($user->subscription()->pastDue()) {
+    // ...
+}
+```
+
+#### Subscription Scopes
+
+There are several subscription scopes available for querying subscriptions in specific states:
+
+```php
+// Get all active subscriptions...
+$subscriptions = Subscription::query()->active()->get();
+
+// Get all of the cancelled subscriptions for a specific user...
+$subscriptions = $user->subscriptions()->cancelled()->get();
+```
+
+Here's all available scopes:
+
+```php
+Subscription::query()->incomplete();
+Subscription::query()->incompleteExpired();
+Subscription::query()->onTrial();
+Subscription::query()->active();
+Subscription::query()->pastDue();
+Subscription::query()->unpaid();
+Subscription::query()->cancelled();
+```
+
+#### Changing Plans
+
+When a consumer is on a monthly plan, they may desire to upgrade to a better plan, alter their payments to an annual plan, or drop to a lower-cost plan. In these cases, you can allow them to swap plans by giving a different product id to the `swap` method:
+
+```php
+use App\Models\User;
+
+$user = User::find(1);
+
+$user->subscription()->swap('product_id_123');
+```
+
+This will change the customer's subscription plan, however billing will not occur until the next payment cycle. If you want to immediately invoice the customer, you can use the `swapAndInvoice` method instead.
+
+```php
+$user = User::find(1);
+
+$user->subscription()->swapAndInvoice('product_id_123');
+```
+
+#### Multiple Subscriptions
+
+In certain situations, you may wish to allow your consumer to subscribe to numerous subscription kinds.  For example, a gym may provide a swimming and weight lifting subscription.  You can let your customers subscribe to one or both.
+
+To handle the various subscriptions, you can offer a type of subscription as the second argument when creating a new one:
+
+```php
+$user = User::find(1);
+
+$checkout = $user->subscribe('product_id_123', 'swimming');
+```
+
+You can now always refer to this specific subscription type by passing the type argument when getting it:
+
+```php
+$user = User::find(1);
+
+// Retrieve the swimming subscription type...
+$subscription = $user->subscription('swimming');
+
+// Swap plans for the gym subscription type...
+$user->subscription('gym')->swap('product_id_123');
+
+// Cancel the swimming subscription...
+$user->subscription('swimming')->cancel();
+```
+
+#### Cancelling Subscriptions
+
+To cancel a subscription, call the `cancel` method.
+
+```php
+$user = User::find(1);
+
+$user->subscription()->cancel();
+```
+
+This will cause your subscription to be cancelled.  If you cancel your subscription in the middle of the cycle, it will enter a grace period, and the ends_at column will be updated.  The customer will continue to have access to the services offered for the duration of the period.  You may check the grace period by calling the `onGracePeriod` method:
+
+```php
+if ($user->subscription()->onGracePeriod()) {
+    // ...
+}
+```
+
+Polar does not offer immediate cancellation.  To resume a subscription while it is still in its grace period, use the resume method.
+
+```php
+$user->subscription()->resume();
+```
+
+When a cancelled subscription approaches the end of its grace period, it becomes expired and cannot be resumed.
+
+### Handling Webhooks
+
+Polar can send webhooks to your app, allowing you to react. By default, this package handles the majority of the work for you. If you have properly configured webhooks, it will listen for incoming events and update your database accordingly. We recommend activating all event kinds so you may easily upgrade in the future.
+
+#### Webhook Events
+
+- `Danestves\LaravelPolar\Events\BenefitGrantCreated`
+- `Danestves\LaravelPolar\Events\BenefitGrantUpdated`
+- `Danestves\LaravelPolar\Events\BenefitGrantRevoked`
+- `Danestves\LaravelPolar\Events\OrderCreated`
+- `Danestves\LaravelPolar\Events\OrderRefunded`
+- `Danestves\LaravelPolar\Events\SubscriptionActive`
+- `Danestves\LaravelPolar\Events\SubscriptionCanceled`
+- `Danestves\LaravelPolar\Events\SubscriptionCreated`
+- `Danestves\LaravelPolar\Events\SubscriptionRevoked`
+- `Danestves\LaravelPolar\Events\SubscriptionUpdated`
+
+Each of these events has a billable `$model` object and an event `$payload`. The subscription events also include the `$subscription` object. These can be accessed via the public properties.
+
+If you wish to respond to these events, you must establish listeners for them.  For example, you may wish to react when a subscription is updated.
+
+```php
+<?php
+
+namespace App\Listeners;
+
+use Danestves\LaravelPolar\Events\WebhookHandled;
+
+class PolarEventListener
+{
+    /**
+     * Handle received Polar webhooks.
+     */
+    public function handle(WebhookHandled $event): void
+    {
+        if ($event->payload['type'] === 'subscription.updated') {
+            // Handle the incoming event...
+        }
+    }
+}
+```
+
+The [Polar documentation](https://docs.polar.sh/integrate/webhooks/events) includes an example payload.
+
+Laravel v11 and up will automatically discover the listener. If you're using Laravel v10 or lower, you should configure it in your app's `EventServiceProvider`:
+
+```php
+<?php
+
+namespace App\Providers;
+
+use App\Listeners\PolarEventListener;
+use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvider;
+use Danestves\LaravelPolar\Events\WebhookHandled;
+
+class EventServiceProvider extends ServiceProvider
+{
+    protected $listen = [
+        WebhookHandled::class => [
+            PolarEventListener::class,
+        ],
+    ];
+}
+```
+
+## Roadmap
+
+- [ ] Add support for trials
+    Polar itself doesn't support trials, but we can manage them by ourselves.
+
 ## Testing
 
 ```bash

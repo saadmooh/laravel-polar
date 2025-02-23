@@ -14,6 +14,8 @@ use Danestves\LaravelPolar\Events\SubscriptionCanceled;
 use Danestves\LaravelPolar\Events\SubscriptionCreated;
 use Danestves\LaravelPolar\Events\SubscriptionRevoked;
 use Danestves\LaravelPolar\Events\SubscriptionUpdated;
+use Danestves\LaravelPolar\Events\WebhookHandled;
+use Danestves\LaravelPolar\Events\WebhookReceived;
 use Danestves\LaravelPolar\Exceptions\InvalidMetadataPayload;
 use Danestves\LaravelPolar\LaravelPolar;
 use Danestves\LaravelPolar\Order;
@@ -30,6 +32,8 @@ final class ProcessWebhook extends ProcessWebhookJob
         $type = $payload['type'];
         $data = $payload['data'];
 
+        WebhookReceived::dispatch($payload);
+
         match ($type) {
             'order.created' => $this->handleOrderCreated($data),
             'order.updated' => $this->handleOrderUpdated($data),
@@ -43,6 +47,8 @@ final class ProcessWebhook extends ProcessWebhookJob
             'benefit_grant.revoked' => $this->handleBenefitGrantRevoked($data),
             default => Log::info($data['type']),
         };
+
+        WebhookHandled::dispatch($payload);
 
         // Acknowledge you received the response
         http_response_code(200);

@@ -210,7 +210,7 @@ class Subscription extends Model
     /**
      * Swap the subscription to a new product.
      */
-    public function swap(string $productId, ?Components\SubscriptionProrationBehavior $prorationBehavior = null): self
+    public function swap(string $productId, ?Components\SubscriptionProrationBehavior $prorationBehavior = Components\SubscriptionProrationBehavior::Prorate): self
     {
         $response = LaravelPolar::updateSubscription(
             subscriptionId: $this->polar_id,

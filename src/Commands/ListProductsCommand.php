@@ -2,7 +2,7 @@
 
 namespace Danestves\LaravelPolar\Commands;
 
-use Danestves\LaravelPolar\Facades\LaravelPolar;
+use Danestves\LaravelPolar\LaravelPolar;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Validator;
 use Polar\Models\Components;

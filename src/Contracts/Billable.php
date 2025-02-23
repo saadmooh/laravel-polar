@@ -12,9 +12,6 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphOne;
 use Illuminate\Http\RedirectResponse;
 
-/**
- * @mixin \Illuminate\Database\Eloquent\Model
- */
 interface Billable
 {
     /**

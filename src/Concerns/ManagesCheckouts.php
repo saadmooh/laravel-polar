@@ -6,7 +6,7 @@ use Danestves\LaravelPolar\Checkout;
 use Danestves\LaravelPolar\Exceptions\ReservedMetadataKeys;
 use Polar\Models\Components;
 
-trait ManagesCheckouts
+trait ManagesCheckouts // @phpstan-ignore-line trait.unused - ManagesCheckouts is used in Billable trait
 {
     /**
      * Create a new checkout instance to sell a product with a custom price.

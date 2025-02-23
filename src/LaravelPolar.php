@@ -31,10 +31,10 @@ class LaravelPolar
      *
      * @throws PolarApiError
      */
-    public function createCheckoutSession(Components\CheckoutProductsCreate $request): ?Components\Checkout
+    public static function createCheckoutSession(Components\CheckoutProductsCreate $request): ?Components\Checkout
     {
         try {
-            $responses = $this->sdk()->checkouts->create(request: $request);
+            $responses = self::sdk()->checkouts->create(request: $request);
 
             return $responses->checkout;
         } catch (Errors\APIException $e) {
@@ -47,10 +47,10 @@ class LaravelPolar
      *
      * @throws PolarApiError
      */
-    public function updateSubscription(string $subscriptionId, Components\SubscriptionUpdateProduct|Components\SubscriptionCancel $request): ?Components\Subscription
+    public static function updateSubscription(string $subscriptionId, Components\SubscriptionUpdateProduct|Components\SubscriptionCancel $request): ?Components\Subscription
     {
         try {
-            $responses = $this->sdk()->subscriptions->update(id: $subscriptionId, subscriptionUpdate: $request);
+            $responses = self::sdk()->subscriptions->update(id: $subscriptionId, subscriptionUpdate: $request);
 
             return $responses->subscription;
         } catch (Errors\APIException $e) {
@@ -63,10 +63,10 @@ class LaravelPolar
      *
      * @throws PolarApiError
      */
-    public function listProducts(Operations\ProductsListRequest $request): ?Components\ListResourceProduct
+    public static function listProducts(Operations\ProductsListRequest $request): ?Components\ListResourceProduct
     {
         try {
-            $responses = $this->sdk()->products->list(request: $request);
+            $responses = self::sdk()->products->list(request: $request);
 
             foreach ($responses as $response) {
                 if ($response->statusCode === 200) {
@@ -85,10 +85,10 @@ class LaravelPolar
      *
      * @throws PolarApiError
      */
-    public function createCustomerSession(Components\CustomerSessionCreate $request): ?Components\CustomerSession
+    public static function createCustomerSession(Components\CustomerSessionCreate $request): ?Components\CustomerSession
     {
         try {
-            $responses = $this->sdk()->customerSessions->create(request: $request);
+            $responses = self::sdk()->customerSessions->create(request: $request);
 
             return $responses->customerSession;
         } catch (Errors\APIException $e) {

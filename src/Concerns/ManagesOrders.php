@@ -3,11 +3,11 @@
 namespace Danestves\LaravelPolar\Concerns;
 
 use Danestves\LaravelPolar\Enums\OrderStatus;
-use Danestves\LaravelPolar\Facades\LaravelPolar;
+use Danestves\LaravelPolar\LaravelPolar;
 use Danestves\LaravelPolar\Order;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
-trait ManagesOrders
+trait ManagesOrders // @phpstan-ignore-line trait.unused - ManagesOrders is used in Billable trait
 {
     /**
      * Get all of the orders for the billable.

@@ -7,7 +7,7 @@ use Danestves\LaravelPolar\Concerns\ManagesCustomer;
 use Danestves\LaravelPolar\Concerns\ManagesOrders;
 use Danestves\LaravelPolar\Concerns\ManagesSubscription;
 
-trait Billable
+trait Billable // @phpstan-ignore-line trait.unused - Billable is used in the user final code
 {
     use ManagesCheckouts;
     use ManagesCustomer;

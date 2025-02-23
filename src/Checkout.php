@@ -3,7 +3,6 @@
 namespace Danestves\LaravelPolar;
 
 use Danestves\LaravelPolar\Exceptions\PolarApiError;
-use Danestves\LaravelPolar\Facades\LaravelPolar;
 use DateTime;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\RedirectResponse;

@@ -3,7 +3,6 @@
 namespace Danestves\LaravelPolar;
 
 use Danestves\LaravelPolar\Exceptions\PolarApiError;
-use Danestves\LaravelPolar\Facades\LaravelPolar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;

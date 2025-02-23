@@ -206,6 +206,69 @@ This package includes a list of commands that you can use to retrieve informatio
 |---------|-------------|
 | `php artisan polar:products` | List all available products with their ids |
 
+### Checkouts
+
+#### Single Payments
+
+To create a checkout to show only a single payment, pass a single items to the array of products when creating the checkout.
+
+```php
+use Illuminate\Http\Request;
+
+Route::get('/subscribe', function (Request $request) {
+    return $request->user()->checkout(['product_id_123']);
+});
+```
+
+If you want to show multiple products that the user can choose from, you can pass an array of product ids to the `checkout` method.
+
+```php
+use Illuminate\Http\Request;
+
+Route::get('/subscribe', function (Request $request) {
+    return $request->user()->checkout(['product_id_123', 'product_id_456']);
+});
+```
+
+This could be useful if you want to offer monthly, yearly, and lifetime plans for example.
+
+> [!NOTE]
+> If you are requesting the checkout a lot of times we recommend you to cache the URL returned by the `checkout` method.
+
+#### Custom Price
+
+You can override the price of a product using the `charge` method.
+
+```php
+use Illuminate\Http\Request;
+
+Route::get('/subscribe', function (Request $request) {
+    return $request->user()->charge(1000, ['product_id_123']);
+});
+```
+
+#### Embedded Checkout
+
+Instead of redirecting the user you can create the checkout link, pass it to the page and use our blade component:
+
+```php
+use Illuminate\Http\Request;
+
+Route::get('/billing', function (Request $request) {
+    $checkout = $request->user()->checkout(['product_id_123']);
+
+    return view('billing', ['checkout' => $checkout]);
+});
+```
+
+Now we can use the button like this:
+
+```blade
+<x-polar-button :checkout="$checkout" />
+```
+
+The component accepts the normal props that a link element accepts.
+
 ## Testing
 
 ```bash

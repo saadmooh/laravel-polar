@@ -64,7 +64,9 @@ Please review [our security policy](../../security/policy) on how to report secu
 
 ## Credits
 
-- [danestves](https://github.com/danestves)
+- [laravel/cashier (Stripe)](https://github.com/laravel/cashier-stripe)
+- [laravel/cashier (Paddle)](https://github.com/laravel/cashier-paddle)
+- [lemonsqueezy/laravel](https://github.com/lmsqueezy/laravel)
 - [All Contributors](../../contributors)
 
 ## License

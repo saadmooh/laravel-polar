@@ -6,5 +6,5 @@ Route::group([
     'prefix' => config('polar.path'),
     'as' => 'polar.',
 ], function () {
-    Route::webhooks('webhook', 'polar');
+    Route::post('webhook', '\Spatie\WebhookClient\Http\Controllers\WebhookController')->name('webhook-client-polar');
 });

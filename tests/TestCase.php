@@ -3,13 +3,15 @@
 namespace Danestves\LaravelPolar\Tests;
 
 use Danestves\LaravelPolar\LaravelPolarServiceProvider;
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Orchestra\Testbench\Concerns\WithLaravelMigrations;
+use Illuminate\Foundation\Testing\Concerns\InteractsWithViews;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Orchestra\Testbench\TestCase as Orchestra;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TestCase extends Orchestra
 {
-    use WithLaravelMigrations;
+    use RefreshDatabase;
+    use InteractsWithViews;
 
     protected function setUp(): void
     {
@@ -18,8 +20,6 @@ class TestCase extends Orchestra
         Factory::guessFactoryNamesUsing(
             fn(string $modelName) => 'Danestves\\LaravelPolar\\Database\\Factories\\' . class_basename($modelName) . 'Factory',
         );
-
-        $this->app['view']->addNamespace('polar', __DIR__ . '/../resources/views');
     }
 
     protected function getPackageProviders($app)
@@ -31,12 +31,19 @@ class TestCase extends Orchestra
 
     public function getEnvironmentSetUp($app)
     {
+        config()->set('app.key', 'base64:EWcFBKBT8lGDNE8nQhTHY+wg19QlfmbhtO9Qnn3NfcA=');
         config()->set('database.default', 'testing');
 
-        $app['config']->set('polar', require __DIR__ . '/../config/polar.php');
+        $migrations = require __DIR__ . '/../database/migrations/create_polar_customers_table.php.stub';
+        $migrations->up();
 
-        foreach (\Illuminate\Support\Facades\File::allFiles(__DIR__ . '/../database/migrations') as $migration) {
-            (include $migration->getRealPath())->up();
-        }
+        $migrations = require __DIR__ . '/../database/migrations/create_polar_orders_table.php.stub';
+        $migrations->up();
+
+        $migrations = require __DIR__ . '/../database/migrations/create_polar_subscriptions_table.php.stub';
+        $migrations->up();
+
+        $migrations = require __DIR__ . '/../database/migrations/create_webhook_calls_table.php.stub';
+        $migrations->up();
     }
 }

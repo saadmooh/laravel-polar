@@ -14,9 +14,10 @@ class LaravelPolarServiceProvider extends PackageServiceProvider
         $package
             ->name('laravel-polar')
             ->hasConfigFile()
+            ->hasViews()
             ->hasViewComponent('polar', Button::class)
             ->discoversMigrations()
-            ->hasRoutes()
+            ->hasRoute("web")
             ->hasCommands(
                 ListProductsCommand::class,
             );

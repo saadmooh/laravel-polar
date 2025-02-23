@@ -328,6 +328,26 @@ When working with custom data, this library has a few reserved terms.
 
 Using any of these will result in an exception being thrown.
 
+### Customers
+
+#### Customer Portal
+
+Customers can update their personal information (e.g., name, email address) by accessing their [self-service customer portal](https://docs.polar.sh/features/customer-portal). To redirect customers to this portal, call the `redirectToCustomerPortal()` method on your billable model (e.g., the User model).
+
+```php
+use Illuminate\Http\Request;
+
+Route::get('/customer-portal', function (Request $request) {
+    return $request->user()->redirectToCustomerPortal();
+});
+```
+
+Optionally, you can obtain the signed customer portal URL directly:
+
+```php
+$url = $user->customerPortalUrl();
+```
+
 ## Testing
 
 ```bash

@@ -292,13 +292,20 @@ It defaults to light theme, so you only need to pass the prop if you want to cha
 For projects usin Inertia you can render the button adding `data-polar-checkout` to the link in the following way:
 
 ```vue
-// Vue
-<a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
+// button.vue
+<template>
+  <a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
+</template>
 ```
 
-```react
-// React
-<a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
+```jsx
+// button.{jsx,tsx}
+
+export function Button() {
+  return (
+    <a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
+  );
+}
 ```
 
 At the end is just a normal link but ysin an special attribute for the script to render the embedded checkout.

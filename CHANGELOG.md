@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v0.1.3 - 2025-02-24
+
+### What's Changed
+
+* feat: descriptive name for embed script by @danestves in https://github.com/danestves/laravel-polar/pull/3
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v0.1.2...v0.1.3
+
 ## v0.1.2 - 2025-02-24
 
 ### What's Changed

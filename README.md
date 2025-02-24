@@ -17,17 +17,30 @@ Seamlessly integrate Polar.sh subscriptions and payments into your Laravel appli
 composer require danestves/laravel-polar
 ```
 
-**Step 2:** Publish and run the migrations with:
+**Step 2:** Run `:install`:
 
 ```bash
-php artisan vendor:publish --tag="laravel-polar-migrations"
-php artisan migrate
+php artisan polar:install
 ```
 
-**Step 3:** You can publish the config file with:
+This will publish the config, migrations and views, and ask to run the migrations.
+
+Or publish and run the migrations individually:
 
 ```bash
-php artisan vendor:publish --tag="laravel-polar-config"
+php artisan vendor:publish --tag="polar-migrations"
+```
+
+```bash
+php artisan vendor:publish --tag="polar-config"
+```
+
+```bash
+php artisan vendor:publish --tag="polar-views"
+```
+
+```bash
+php artisan migrate
 ```
 
 This is the contents of the published config file:
@@ -100,12 +113,6 @@ return [
     */
     'currency_locale' => env('POLAR_CURRENCY_LOCALE', 'en'),
 ];
-```
-
-**Step 4:** Optionally, you can publish the views using:
-
-```bash
-php artisan vendor:publish --tag="laravel-polar-views"
 ```
 
 ## Usage

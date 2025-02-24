@@ -293,12 +293,12 @@ For projects usin Inertia you can render the button adding `data-polar-checkout`
 
 ```vue
 // Vue
-<a href="<CHECKOUT_LINK> data-polar-checkout>Buy now</a>
+<a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
 ```
 
 ```react
 // React
-<a href="<CHECKOUT_LINK> data-polar-checkout>Buy now</a>
+<a href="<CHECKOUT_LINK>" data-polar-checkout>Buy now</a>
 ```
 
 At the end is just a normal link but ysin an special attribute for the script to render the embedded checkout.

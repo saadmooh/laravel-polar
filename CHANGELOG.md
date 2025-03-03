@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v0.2.0 - 2025-03-03
+
+### What's Changed
+
+* fix: customer metadata wrong assumption by @danestves in https://github.com/danestves/laravel-polar/pull/8
+* fix: correct handling of webhooks by @danestves in https://github.com/danestves/laravel-polar/pull/9
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v0.1.3...v0.2.0
+
 ## v0.1.3 - 2025-02-24
 
 ### What's Changed

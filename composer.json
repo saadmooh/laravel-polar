@@ -7,7 +7,7 @@
         "billing",
         "subscription"
     ],
-    "version": "0.1.2",
+    "version": "0.2.0",
     "homepage": "https://github.com/danestves/laravel-polar",
     "license": "MIT",
     "authors": [

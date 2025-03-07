@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v0.3.2 - 2025-03-07
+
+### What's Changed
+
+* fix: read all config files by @danestves in https://github.com/danestves/laravel-polar/pull/14
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v0.3.1...v0.3.2
+
 ## v0.3.1 - 2025-03-07
 
 ### What's Changed

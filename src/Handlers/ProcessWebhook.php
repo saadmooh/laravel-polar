@@ -126,7 +126,7 @@ class ProcessWebhook extends ProcessWebhookJob
             'ends_at' => $payload['ends_at'] ? Carbon::make($payload['ends_at']) : null,
         ]);
 
-        if (is_null($billable->customer->polar_id)) { // @phpstan-ignore-line property.notFound - the property is found in the billable model
+        if ($billable->customer->polar_id === null) { // @phpstan-ignore-line property.notFound - the property is found in the billable model
             $billable->customer->update(['polar_id' => $payload['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
         }
 

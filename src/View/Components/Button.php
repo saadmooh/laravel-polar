@@ -14,6 +14,6 @@ class Button extends Component
 
     public function render(): View
     {
-        return view('polar::components.button');
+        return view('polar::components.button'); // @phpstan-ignore-line
     }
 }

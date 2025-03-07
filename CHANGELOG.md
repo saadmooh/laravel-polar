@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v0.3.0 - 2025-03-07
+
+### What's Changed
+
+* feat: update sdk to latest version by @danestves in https://github.com/danestves/laravel-polar/pull/10
+* feat: support customer external id by @danestves in https://github.com/danestves/laravel-polar/pull/11
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v0.2.0...v0.3.0
+
 ## v0.2.0 - 2025-03-03
 
 ### What's Changed

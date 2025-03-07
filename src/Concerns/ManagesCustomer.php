@@ -64,15 +64,15 @@ trait ManagesCustomer // @phpstan-ignore-line trait.unused - ManagesCustomer is 
      */
     public function customerPortalUrl(): string
     {
-        if (is_null($this->customer) || is_null($this->customer->polar_id)) {
+        if ($this->customer === null || $this->customer->polar_id === null) {
             throw InvalidCustomer::notYetCreated($this);
         }
 
-        $response = LaravelPolar::createCustomerSession(new Components\CustomerSessionCreate(
+        $response = LaravelPolar::createCustomerSession(new Components\CustomerSessionCustomerIDCreate(
             customerId: $this->customer->polar_id,
         ));
 
-        if (! $response) {
+        if (!$response) {
             throw new PolarApiError('Failed to create customer session');
         }
 

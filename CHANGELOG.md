@@ -2,6 +2,16 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v1.0.0 - 2025-03-09
+
+As of now, we have rewritten the package to entirely use API calls, it should be working like before, only the core has changed with same functionality
+
+### What's Changed
+
+* feat: rewrite queries to use API calls by @danestves in https://github.com/danestves/laravel-polar/pull/15
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v0.3.2...v1.0.0
+
 ## v0.3.2 - 2025-03-07
 
 ### What's Changed

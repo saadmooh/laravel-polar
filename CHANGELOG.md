@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v1.0.1 - 2025-03-10
+
+### What's Changed
+
+* fix: checkout payload mapping the values by @danestves in https://github.com/danestves/laravel-polar/pull/16
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v1.0.0...v1.0.1
+
 ## v1.0.0 - 2025-03-09
 
 As of now, we have rewritten the package to entirely use API calls, it should be working like before, only the core has changed with same functionality

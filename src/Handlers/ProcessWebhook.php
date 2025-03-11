@@ -45,7 +45,7 @@ class ProcessWebhook extends ProcessWebhookJob
             'benefit_grant.created' => $this->handleBenefitGrantCreated($data),
             'benefit_grant.updated' => $this->handleBenefitGrantUpdated($data),
             'benefit_grant.revoked' => $this->handleBenefitGrantRevoked($data),
-            default => Log::info($data['type']),
+            default => Log::info("Unknown event type: $type"),
         };
 
         WebhookHandled::dispatch($payload);
@@ -63,7 +63,7 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($payload);
 
-        $order = $billable->orders()->create([
+        $order = $billable->orders()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
             'polar_id' => $payload['id'],
             'status' => $payload['status'],
             'amount' => $payload['amount'],
@@ -78,7 +78,7 @@ class ProcessWebhook extends ProcessWebhookJob
             'ordered_at' => Carbon::make($payload['created_at']),
         ]);
 
-        OrderCreated::dispatch($billable, $order, $payload);
+        OrderCreated::dispatch($billable, $order, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -103,7 +103,7 @@ class ProcessWebhook extends ProcessWebhookJob
             'refunded_at' => $isRefunded ? Carbon::make($payload['refunded_at']) : null,
         ]);
 
-        OrderUpdated::dispatch($billable, $order, $payload, $isRefunded);
+        OrderUpdated::dispatch($billable, $order, $payload, $isRefunded); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -116,7 +116,7 @@ class ProcessWebhook extends ProcessWebhookJob
         $customerMetadata = $payload['customer']['metadata'];
         $billable = $this->resolveBillable($payload);
 
-        $subscription = $billable->subscriptions()->create([
+        $subscription = $billable->subscriptions()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
             'type' => $customerMetadata['subscription_type'],
             'polar_id' => $payload['id'],
             'status' => $payload['status'],
@@ -130,7 +130,7 @@ class ProcessWebhook extends ProcessWebhookJob
             $billable->customer->update(['polar_id' => $payload['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
         }
 
-        SubscriptionCreated::dispatch($billable, $subscription, $payload);
+        SubscriptionCreated::dispatch($billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -146,7 +146,7 @@ class ProcessWebhook extends ProcessWebhookJob
 
         $subscription->sync($payload);
 
-        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $payload);
+        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -162,7 +162,7 @@ class ProcessWebhook extends ProcessWebhookJob
 
         $subscription->sync($payload);
 
-        SubscriptionActive::dispatch($subscription->billable, $subscription, $payload);
+        SubscriptionActive::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -178,7 +178,7 @@ class ProcessWebhook extends ProcessWebhookJob
 
         $subscription->sync($payload);
 
-        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $payload);
+        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -194,7 +194,7 @@ class ProcessWebhook extends ProcessWebhookJob
 
         $subscription->sync($payload);
 
-        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $payload);
+        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -206,7 +206,7 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($payload);
 
-        BenefitGrantCreated::dispatch($billable, $payload);
+        BenefitGrantCreated::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -218,7 +218,7 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($payload);
 
-        BenefitGrantUpdated::dispatch($billable, $payload);
+        BenefitGrantUpdated::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
@@ -230,20 +230,20 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($payload);
 
-        BenefitGrantRevoked::dispatch($billable, $payload);
+        BenefitGrantRevoked::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Resolve the billable from the payload.
      *
      * @param  array<string, mixed>  $payload
-     * @return \Danestves\LaravelPolar\Contracts\Billable
+     * @return \Danestves\LaravelPolar\Billable
      *
      * @throws InvalidMetadataPayload
      */
-    private function resolveBillable(array $payload)
+    private function resolveBillable(array $payload) // @phpstan-ignore-line return.trait - Billable is used in the user final code
     {
-        $customerMetadata = $payload['data']['customer']['metadata'] ?? null;
+        $customerMetadata = $payload['customer']['metadata'] ?? null;
 
         if (!isset($customerMetadata) || !is_array($customerMetadata) || !isset($customerMetadata['billable_id'], $customerMetadata['billable_type'])) {
             throw new InvalidMetadataPayload();
@@ -252,16 +252,16 @@ class ProcessWebhook extends ProcessWebhookJob
         return $this->findOrCreateCustomer(
             $customerMetadata['billable_id'],
             (string) $customerMetadata['billable_type'],
-            (string) $payload['data']['customer_id'],
+            (string) $payload['customer_id'],
         );
     }
 
     /**
      * Find or create a customer.
      *
-     * @return \Danestves\LaravelPolar\Contracts\Billable
+     * @return \Danestves\LaravelPolar\Billable
      */
-    private function findOrCreateCustomer(int|string $billableId, string $billableType, string $customerId)
+    private function findOrCreateCustomer(int|string $billableId, string $billableType, string $customerId) // @phpstan-ignore-line return.trait - Billable is used in the user final code
     {
         return LaravelPolar::$customerModel::firstOrCreate([
             'billable_id' => $billableId,

@@ -2,8 +2,8 @@
 
 namespace Danestves\LaravelPolar\Events;
 
-use Danestves\LaravelPolar\Contracts\Billable;
 use Danestves\LaravelPolar\Subscription;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -19,7 +19,7 @@ class SubscriptionUpdated
         /**
          * The billable entity.
          */
-        public Billable $billable,
+        public Model $billable,
         /**
          * The subscription instance.
          */

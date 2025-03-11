@@ -2,7 +2,7 @@
 
 namespace Danestves\LaravelPolar\Events;
 
-use Danestves\LaravelPolar\Contracts\Billable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -18,7 +18,7 @@ class BenefitGrantCreated
         /**
          * The billable entity.
          */
-        public Billable $billable,
+        public Model $billable,
         /**
          * The payload array.
          *

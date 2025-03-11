@@ -2,6 +2,14 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v1.1.0 - 2025-03-11
+
+### What's Changed
+
+* feat: webhook parse and data by @danestves in https://github.com/danestves/laravel-polar/pull/17
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v1.0.1...v1.1.0
+
 ## v1.0.1 - 2025-03-10
 
 ### What's Changed

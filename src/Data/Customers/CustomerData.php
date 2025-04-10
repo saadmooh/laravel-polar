@@ -60,7 +60,7 @@ class CustomerData extends Data
          * `["911144442", "us_ein"]`
          */
         #[MapName('tax_id')]
-        public readonly array $taxId,
+        public readonly ?array $taxId,
         /**
          * The ID of the organization owning the customer.
          *

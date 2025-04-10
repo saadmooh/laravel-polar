@@ -2,6 +2,15 @@
 
 All notable changes to `laravel-polar` will be documented in this file.
 
+## v1.1.2 - 2025-04-10
+
+### What's Changed
+
+* feat: add Pending status to OrderStatus enum by @danestves in https://github.com/danestves/laravel-polar/pull/21
+* fix: update taxId property to allow null values by @danestves in https://github.com/danestves/laravel-polar/pull/22
+
+**Full Changelog**: https://github.com/danestves/laravel-polar/compare/v1.1.1...v1.1.2
+
 ## v1.1.1 - 2025-03-16
 
 **Full Changelog**: https://github.com/danestves/laravel-polar/compare/v1.1.0...v1.1.1

@@ -182,4 +182,147 @@
 - **الكود المضاف**: يركز على تعزيز المرونة (مثل دعم `price_status`، قيم افتراضية، ومعالجة مفاتيح متعددة)، إضافة وظائف جديدة (مثل `paused()` وتحديث `email_verified_at`)، وتحسين معالجة البيانات (مثل `ProductPriceCast`). التعديلات تشمل أيضًا تحسينات في الأداء (مثل إزالة التكرار في `listProducts`) وتبسيط الكود (مثل إزالة معالجة المفاتيح في `updateSubscription`).
 - **التأثير**: الكود الأول أكثر قوة ومرونة، حيث يتعامل مع تنسيقات API متنوعة وحالات حدودية، ولكنه أكثر تعقيدًا بسبب المنطق الإضافي. الكود الثاني أبسط ولكنه أقل موثوقية في الحالات التي تتطلب معالجة بيانات غير قياسية أو ناقصة، مما قد يؤدي إلى أخطاء إذا لم يتم توحيد البيانات مسبقًا.
 
-إذا كنت بحاجة إلى مزيد من التفاصيل أو ترجمة جزء معين إلى لغة أخرى، يرجى إخباري!
+
+
+Below is a summary of the differences between the provided code snippets (excluding comments and relationships) in English, with the exception of the `email_verified_at` update in `handleSubscriptionCreated` and `handleSubscriptionUpdated`, which will remain in Arabic.
+
+### 1. Comparison of `Subscription` Code:
+- **Added Code**:
+  - Added `paused()` method:
+    ```php
+    public function paused(): bool
+    {
+        return $this->ends_at === null ? false : true;
+    }
+    ```
+  - Modified `sync()` method to support `productId`/`priceId` in addition to `product_id`/`price_id`:
+    ```php
+    'product_id' => $attributes['productId'] ?? $attributes['product_id'],
+    'price_id' => $attributes['priceId'] ?? $attributes['price_id'],
+    ```
+  - Used direct string values (e.g., `"incomplete"`, `"active"`, `"past_due"`) instead of the `SubscriptionStatus` enum in methods like `incomplete()`, `onTrial()`, `active()`, etc.
+- **Impact**:
+  - The `paused()` method adds the ability to check if a subscription is paused based on `ends_at`, supporting an additional subscription state.
+  - Modifying `sync()` enhances flexibility by handling API responses with varying key formats (`productId`/`priceId` vs. `product_id`/`price_id`), reducing errors due to inconsistent formats.
+  - Using string values instead of the `SubscriptionStatus` enum may increase flexibility but risks incompatibility if the enum is used elsewhere, requiring consistent state value handling.
+
+### 2. Comparison of `LaravelPolar` Code:
+- **Added Code**:
+  - Changed HTTP method in `updateSubscription` from `PATCH` to `POST`:
+    ```php
+    $response = self::api("POST", "v1/subscriptions/$subscriptionId", $request->toArray());
+    ```
+  - Removed key normalization for `userId`/`productId` in `updateSubscription`:
+    ```php
+    // First code:
+    $responseData['userId'] = $response->json()['user_id'] ?? $response->json()['userId'];
+    $responseData['productId'] = $response->json()['product_id'] ?? $response->json()['productId'];
+    unset($responseData['product_id']);
+    unset($responseData['user_id']);
+    ```
+  - Removed redundant API call in `listProducts`:
+    ```php
+    // First code (with redundancy):
+    $response = self::api("GET", "v1/products", $request->toArray());
+    try {
+        $response = self::api("GET", "v1/products", $request->toArray());
+        ...
+    }
+    // Second code (without redundancy):
+    try {
+        $response = self::api("GET", "v1/products", $request->toArray());
+        ...
+    }
+    ```
+- **Impact**:
+  - Switching from `PATCH` to `POST` may align with specific API requirements but could cause incompatibility if the API expects `PATCH` for subscription updates, requiring thorough testing.
+  - Removing key normalization simplifies the code but may lead to issues if API responses use varying formats (e.g., `user_id` vs. `userId`), necessitating consistent response formats elsewhere.
+  - Removing the redundant API call in `listProducts` improves code quality and performance by avoiding unnecessary API requests.
+
+### 3. Comparison of `Checkout` Code:
+- **Added Code**:
+  - No functional additions (differences limited to comments).
+- **Impact**:
+  - No functional impact, as differences are confined to the removal of debugging comments (`dd`), making the second code cleaner and more production-ready.
+
+### 4. Comparison of `ProcessWebhook` Code:
+- **Added Code**:
+  - تحديث `email_verified_at` في `handleSubscriptionCreated` و`handleSubscriptionUpdated`:
+    ```php
+    $email = $payload['customer']['email'];
+    $user = \App\Models\User::where('email', $email)->first();
+    if ($user) {
+        $user->update(['email_verified_at' => Carbon::now()]);
+        $user->save();
+    } else {
+        Log::warning("User with email {$email} not found for subscription ... event.");
+    }
+    ```
+  - Added default value `"default"` for `type` in `handleSubscriptionCreated`:
+    ```php
+    'type' => $customerMetadata['subscription_type'] ?? "default",
+    ```
+  - Added support for `price_status` in `resolveBillable`:
+    ```php
+    if (isset($productMetadata["price_status"])) {
+        $email = $payload['customer']['email'];
+        $user = \App\Models\User::where('email', $email)->first();
+        if ($user) {
+            $billableId = $user->id;
+            $billableType = "App\Models\User";
+            $customerId = (string) $payload['customer_id'];
+        } else {
+            Log::warning("User with email {$email} not found for subscription updated event.");
+        }
+    } else {
+        $billableId = $customerMetadata['billable_id'] ?? null;
+        $billableType = (string) $customerMetadata['billable_type'] ?? null;
+        $customerId = (string) $payload['customer_id'] ?? null;
+    }
+    ```
+  - Added check for `useremail` in `resolveBillable`:
+    ```php
+    $useremail = $payload['user']['email'] ?? null;
+    ```
+- **Impact**:
+  - تحديث `email_verified_at` يضيف وظيفة لتأكيد البريد الإلكتروني عند إنشاء أو تحديث الاشتراكات، مما قد يكون مطلوبًا في سياقات تتطلب التحقق من البريد (مثل الأمان أو الامتثال).
+  - Adding a default `"default"` for `type` prevents errors if `subscription_type` is missing, enhancing reliability.
+  - Supporting `price_status` in `resolveBillable` increases flexibility by handling payloads with `productMetadata` instead of `customerMetadata`, allowing subscription linking via email.
+  - Checking `useremail` may be an attempt to support additional cases but could be unused if the `user` key is absent, requiring further review.
+
+### 5. Comparison of `CheckoutSessionData` Code:
+- **Added Code**:
+  - Added `ProductPriceCast` class with `#[WithCast(ProductPriceCast::class)]` for `product_price`:
+    ```php
+    #[WithCast(ProductPriceCast::class)]
+    public readonly LegacyRecurringProductPriceFixedData|LegacyRecurringProductPriceCustomData|LegacyRecurringProductPriceFreeData|ProductPriceFixedData|ProductPriceCustomData|ProductPriceFreeData|null $productPrice,
+    ```
+    ```php
+    class ProductPriceCast implements Cast
+    {
+        public function cast(DataProperty $property, mixed $value, array $properties, CreationContext $context): mixed
+        {
+            if (!is_array($value)) {
+                return null;
+            }
+            $priceType = $value['amount_type'] ?? null;
+            $isLegacyRecurring = $value['type'] === "recurring" ? true : false;
+            return match (true) {
+                $isLegacyRecurring && $priceType === 'fixed' => LegacyRecurringProductPriceFixedData::from($value),
+                $isLegacyRecurring && $priceType === 'custom' => LegacyRecurringProductPriceCustomData::from($value),
+                $isLegacyRecurring && $priceType === 'free' => LegacyRecurringProductPriceFreeData::from($value),
+                !$isLegacyRecurring && $priceType === 'fixed' => ProductPriceFixedData::from($value),
+                !$isLegacyRecurring && $priceType === 'custom' => ProductPriceCustomData::from($value),
+                !$isLegacyRecurring && $priceType === 'free' => ProductPriceFreeData::from($value),
+                default => null,
+            };
+        }
+    }
+    ```
+- **Impact**:
+  - The `ProductPriceCast` class ensures precise conversion of `product_price` to the appropriate class based on `amount_type` (fixed, custom, free) and `type` (recurring or non-recurring), improving reliability.
+  - Without `ProductPriceCast` in the second code, conversion relies on `Spatie\LaravelData`'s default behavior, which may lead to errors or `null` if the data doesn't match expected types, reducing reliability in edge cases.
+
+### General Summary:
+- **Added Code**: Focuses on enhancing flexibility (e.g., supporting `price_status`, default values, multiple key formats), adding new functionality (e.g., `paused()`, `email_verified_at` update), and improving data handling (e.g., `ProductPriceCast`).
+- **Impact**: The first code is more robust and flexible, handling diverse API formats and edge cases, but is more complex. The second code is simpler but less reliable in edge cases, potentially leading to errors if data formats are inconsistent.

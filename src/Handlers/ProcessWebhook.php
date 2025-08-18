@@ -27,28 +27,32 @@ class ProcessWebhook extends ProcessWebhookJob
 {
     public function handle(): void
     {
+       
         $decoded = json_decode($this->webhookCall, true);
         $payload = $decoded['payload'];
         $type = $payload['type'];
         $data = $payload['data'];
+        // استخراج البيانات باستخدام extractMetadata بدلاً من $payload و $data
+        $metadata = $this->extractMetadata($payload);
+        $type = $metadata['type'] ?? 'unknown';
 
-        WebhookReceived::dispatch($payload);
+        WebhookReceived::dispatch($decoded['payload'] ?? $decoded);
 
         match ($type) {
-            'order.created' => $this->handleOrderCreated($data),
-            'order.updated' => $this->handleOrderUpdated($data),
-            'subscription.created' => $this->handleSubscriptionCreated($data),
-            'subscription.updated' => $this->handleSubscriptionUpdated($data),
-            'subscription.active' => $this->handleSubscriptionActive($data),
-            'subscription.canceled' => $this->handleSubscriptionCanceled($data),
-            'subscription.revoked' => $this->handleSubscriptionRevoked($data),
-            'benefit_grant.created' => $this->handleBenefitGrantCreated($data),
-            'benefit_grant.updated' => $this->handleBenefitGrantUpdated($data),
-            'benefit_grant.revoked' => $this->handleBenefitGrantRevoked($data),
+            'order.created' => $this->handleOrderCreated($metadata),
+            'order.updated' => $this->handleOrderUpdated($metadata),
+            'subscription.created' => $this->handleSubscriptionCreated($metadata),
+            'subscription.updated' => $this->handleSubscriptionUpdated($metadata),
+            'subscription.active' => $this->handleSubscriptionActive($metadata),
+            'subscription.canceled' => $this->handleSubscriptionCanceled($metadata),
+            'subscription.revoked' => $this->handleSubscriptionRevoked($metadata),
+            'benefit_grant.created' => $this->handleBenefitGrantCreated($metadata),
+            'benefit_grant.updated' => $this->handleBenefitGrantUpdated($metadata),
+            'benefit_grant.revoked' => $this->handleBenefitGrantRevoked($metadata),
             default => Log::info("Unknown event type: $type"),
         };
 
-        WebhookHandled::dispatch($payload);
+        WebhookHandled::dispatch($decoded['payload'] ?? $decoded);
 
         // Acknowledge you received the response
         http_response_code(200);
@@ -57,201 +61,453 @@ class ProcessWebhook extends ProcessWebhookJob
     /**
      * Handle the order created event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleOrderCreated(array $payload): void
+    private function handleOrderCreated(array $metadata): void
     {
-        $billable = $this->resolveBillable($payload);
+        $billable = $this->resolveBillable($metadata);
 
         $order = $billable->orders()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
-            'polar_id' => $payload['id'],
-            'status' => $payload['status'],
-            'amount' => $payload['amount'],
-            'tax_amount' => $payload['tax_amount'],
-            'refunded_amount' => $payload['refunded_amount'],
-            'refunded_tax_amount' => $payload['refunded_tax_amount'],
-            'currency' => $payload['currency'],
-            'billing_reason' => $payload['billing_reason'],
-            'customer_id' => $payload['customer_id'],
-            'product_id' => $payload['product_id'],
-            'ordered_at' => Carbon::make($payload['created_at']),
+            'polar_id' => $metadata['subscription_id'] ?? null,
+            'status' => $metadata['status'] ?? 'unknown',
+            'amount' => $metadata['amount'] ?? 0,
+            'tax_amount' => $metadata['tax_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
+            'refunded_amount' => $metadata['refunded_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
+            'refunded_tax_amount' => $metadata['refunded_tax_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
+            'currency' => $metadata['currency'] ?? 'usd',
+            'billing_reason' => $metadata['billing_reason'] ?? null, // غير موجود في الـ JSON، قيمة افتراضية
+            'customer_id' => $metadata['customer_id'] ?? null,
+            'product_id' => $metadata['product_id'] ?? null,
+            'ordered_at' => Carbon::make($metadata['started_at'] ?? null),
         ]);
 
-        OrderCreated::dispatch($billable, $order, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        OrderCreated::dispatch($billable, $order, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the order updated event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleOrderUpdated(array $payload): void
+    private function handleOrderUpdated(array $metadata): void
     {
-        $billable = $this->resolveBillable($payload);
+        $billable = $this->resolveBillable($metadata);
 
-        if (!($order = $this->findOrder($payload['id'])) instanceof LaravelPolar::$orderModel) {
+        if (!($order = $this->findOrder($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$orderModel) {
             return;
         }
 
-        $status = $payload['status'];
+        $status = $metadata['status'] ?? 'unknown';
         $isRefunded = $status === OrderStatus::Refunded->value || $status === OrderStatus::PartiallyRefunded->value;
 
         $order->sync([
-            ...$payload,
+            ...$metadata,
             'status' => $status,
-            'refunded_at' => $isRefunded ? Carbon::make($payload['refunded_at']) : null,
+            'refunded_at' => $isRefunded ? Carbon::make($metadata['canceled_at'] ?? null) : null,
         ]);
 
-        OrderUpdated::dispatch($billable, $order, $payload, $isRefunded); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        OrderUpdated::dispatch($billable, $order, $metadata, $isRefunded); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the subscription created event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleSubscriptionCreated(array $payload): void
+    private function handleSubscriptionCreated(array $metadata): void
     {
-        $customerMetadata = $payload['customer']['metadata'];
-        $billable = $this->resolveBillable($payload);
-
+        // الحصول على billable باستخدام resolveBillable
+        $billable = $this->resolveBillable($metadata);
+        
+        // إنشاء الاشتراك
         $subscription = $billable->subscriptions()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
-            'type' => $customerMetadata['subscription_type'] ?? 'default',
-            'polar_id' => $payload['id'],
-            'status' => $payload['status'],
-            'product_id' => $payload['product_id'],
-            'current_period_end' => $payload['current_period_end'] ? Carbon::make($payload['current_period_end']) : null,
-            'ends_at' => $payload['ends_at'] ? Carbon::make($payload['ends_at']) : null,
+            'type' => $metadata['subscription_metadata']['subscription_type'] ?? 'default',
+            'polar_id' => $metadata['subscription_id'],
+            'status' => $metadata['status'],
+            'product_id' => $metadata['product_id'],
+            'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+            'ends_at' => $metadata['ends_at'] ? Carbon::make($metadata['ends_at']) : null,
         ]);
 
         if ($billable->customer->polar_id === null) { // @phpstan-ignore-line property.notFound - the property is found in the billable model
-            $billable->customer->update(['polar_id' => $payload['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
+            $billable->customer->update(['polar_id' => $metadata['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
         }
 
-        SubscriptionCreated::dispatch($billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionCreated::dispatch($billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the subscription updated event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleSubscriptionUpdated(array $payload): void
+    private function handleSubscriptionUpdated(array $metadata): void
     {
-        if (!($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
+        if (!($subscription = $this->findSubscription($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
-        $subscription->sync($payload);
+        $subscription->sync($metadata);
 
-        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the subscription active event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleSubscriptionActive(array $payload): void
+    private function handleSubscriptionActive(array $metadata): void
     {
-        if (!($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
+        if (!($subscription = $this->findSubscription($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
-        $subscription->sync($payload);
+        $subscription->sync($metadata);
 
-        SubscriptionActive::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionActive::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the subscription canceled event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleSubscriptionCanceled(array $payload): void
+    private function handleSubscriptionCanceled(array $metadata): void
     {
-        if (!($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
+        if (!($subscription = $this->findSubscription($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
-        $subscription->sync($payload);
+        $subscription->sync($metadata);
 
-        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the subscription revoked event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleSubscriptionRevoked(array $payload): void
+    private function handleSubscriptionRevoked(array $metadata): void
     {
-        if (!($subscription = $this->findSubscription($payload['id'])) instanceof LaravelPolar::$subscriptionModel) {
+        if (!($subscription = $this->findSubscription($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$subscriptionModel) {
             return;
         }
 
-        $subscription->sync($payload);
+        $subscription->sync($metadata);
 
-        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the benefit grant created event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleBenefitGrantCreated(array $payload): void
+    private function handleBenefitGrantCreated(array $metadata): void
     {
-        $billable = $this->resolveBillable($payload);
+        $billable = $this->resolveBillable($metadata);
 
-        BenefitGrantCreated::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantCreated::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the benefit grant updated event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleBenefitGrantUpdated(array $payload): void
+    private function handleBenefitGrantUpdated(array $metadata): void
     {
-        $billable = $this->resolveBillable($payload);
+        $billable = $this->resolveBillable($metadata);
 
-        BenefitGrantUpdated::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantUpdated::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
     }
 
     /**
      * Handle the benefit grant revoked event.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      */
-    private function handleBenefitGrantRevoked(array $payload): void
+    private function handleBenefitGrantRevoked(array $metadata): void
     {
-        $billable = $this->resolveBillable($payload);
+        $billable = $this->resolveBillable($metadata);
 
-        BenefitGrantRevoked::dispatch($billable, $payload); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantRevoked::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+    }
+
+    /**
+     * استخراج البيانات المهمة من الـ payload بطريقة دقيقة بناءً على الـ JSON المقدم
+     * 
+     * @param array $payload
+     * @return array
+     */
+    private function extractMetadata(array $payload): array
+    {
+        // البيانات الأساسية من المستوى الأعلى
+        $data = $payload['data'] ?? $payload['payload'] ?? $payload;
+        
+        // استخراج نوع الحدث
+        $type = $this->extractValue($payload, 'type') ?? 'unknown';
+        
+        // استخراج معرف العميل
+        $customerId = $this->extractValue($data, 'customer_id') ?? 
+                      $this->extractValue($data, 'customer.id') ?? 
+                      $this->extractValue($data, 'user_id') ?? 
+                      $this->extractValue($data, 'user.id') ?? null;
+        
+        // استخراج البريد الإلكتروني
+        $email = $this->extractValue($data, 'customer.email') ?? 
+                 $this->extractValue($data, 'user.email') ?? null;
+        
+        // استخراج معلومات المنتج
+        $productId = $this->extractValue($data, 'product_id') ?? 
+                     $this->extractValue($data, 'product.id') ?? null;
+        
+        $productName = $this->extractValue($data, 'product.name') ?? 'unknown';
+        
+        // استخراج معلومات السعر
+        $priceId = $this->extractValue($data, 'price_id') ?? 
+                   $this->extractValue($data, 'price.id') ?? null;
+        
+        $amount = $this->extractValue($data, 'amount') ?? 0;
+        
+        $currency = $this->extractValue($data, 'currency') ?? 'usd';
+        
+        // استخراج metadata من مصادر مختلفة
+        $subscriptionMetadata = $this->extractValue($data, 'metadata') ?? [];
+        $customerMetadata = $this->extractValue($data, 'customer.metadata') ?? [];
+        $productMetadata = $this->extractValue($data, 'product.metadata') ?? [];
+        
+        // دمج جميع metadata
+        $allMetadata = array_merge($subscriptionMetadata, $customerMetadata, $productMetadata);
+        
+        // استخراج معلومات الاشتراك
+        $subscriptionId = $this->extractValue($data, 'id') ?? null;
+        $status = $this->extractValue($data, 'status') ?? 'unknown';
+        $recurringInterval = $this->extractValue($data, 'recurring_interval') ?? null;
+        
+        // استخراج التواريخ المهمة
+        $currentPeriodStart = $this->extractValue($data, 'current_period_start') ?? null;
+        $currentPeriodEnd = $this->extractValue($data, 'current_period_end') ?? null;
+        $startedAt = $this->extractValue($data, 'started_at') ?? null;
+        $endsAt = $this->extractValue($data, 'ends_at') ?? null;
+        $canceledAt = $this->extractValue($data, 'canceled_at') ?? null;
+        
+        // معلومات إضافية
+        $checkoutId = $this->extractValue($data, 'checkout_id') ?? null;
+        $organizationId = $this->extractValue($data, 'customer.organization_id') ?? 
+                         $this->extractValue($data, 'product.organization_id') ?? null;
+        
+        // معلومات العنوان
+        $billingAddress = $this->extractValue($data, 'customer.billing_address') ?? [];
+        $country = $this->extractValue($billingAddress, 'country') ?? null;
+        
+        // تحديد نوع السعر
+        $priceType = $this->extractValue($data, 'price.amount_type') ?? 
+                     $this->extractValue($data, 'price.type') ?? 'unknown';
+        
+        // تحديد حالة السعر من metadata
+        $priceStatus = $this->extractValue($allMetadata, 'price_status') ?? 
+                       ($amount == 0 ? 'free' : 'paid');
+        
+        $extractedMetadata = [
+            // نوع الحدث
+            'type' => $type,
+            // معرفات العميل
+            'customer_id' => $customerId,
+            'user_id' => $this->extractValue($data, 'user_id') ?? null,
+            'email' => $email,
+            
+            // معرفات الاشتراك والمنتج
+            'subscription_id' => $subscriptionId,
+            'product_id' => $productId,
+            'product_name' => $productName,
+            'price_id' => $priceId,
+            
+            // معلومات السعر والفوترة
+            'amount' => $amount,
+            'currency' => $currency,
+            'price_type' => $priceType,
+            'price_status' => $priceStatus,
+            'recurring_interval' => $recurringInterval,
+            
+            // حالة الاشتراك
+            'status' => $status,
+            'is_active' => $status === 'active',
+            'is_free' => $amount == 0 || $priceStatus === 'free',
+            
+            // التواريخ
+            'current_period_start' => $currentPeriodStart,
+            'current_period_end' => $currentPeriodEnd,
+            'started_at' => $startedAt,
+            'ends_at' => $endsAt,
+            'canceled_at' => $canceledAt,
+            'is_canceled' => !empty($canceledAt),
+            
+            // معرفات إضافية
+            'checkout_id' => $checkoutId,
+            'organization_id' => $organizationId,
+            
+            // معلومات جغرافية
+            'country' => $country,
+            'billing_address' => $billingAddress,
+            
+            // metadata مدمجة
+            'metadata' => $allMetadata,
+            'subscription_metadata' => $subscriptionMetadata,
+            'customer_metadata' => $customerMetadata,
+            'product_metadata' => $productMetadata,
+            
+            // معلومات إضافية
+            'has_discount' => !empty($this->extractValue($data, 'discount_id')),
+            'discount_id' => $this->extractValue($data, 'discount_id') ?? null,
+            'custom_fields' => $this->extractValue($data, 'custom_field_data') ?? [],
+            
+            // معلومات المستخدم
+            'user_public_name' => $this->extractValue($data, 'user.public_name') ?? null,
+            'user_avatar_url' => $this->extractValue($data, 'user.avatar_url') ?? null,
+            'user_github_username' => $this->extractValue($data, 'user.github_username') ?? null,
+            
+            // معلومات العميل
+            'customer_name' => $this->extractValue($data, 'customer.name') ?? null,
+            'customer_avatar_url' => $this->extractValue($data, 'customer.avatar_url') ?? null,
+            'customer_email_verified' => $this->extractValue($data, 'customer.email_verified') ?? false,
+            'customer_external_id' => $this->extractValue($data, 'customer.external_id') ?? null,
+            'customer_tax_id' => $this->extractValue($data, 'customer.tax_id') ?? null,
+            
+            // للاستخدام في الـ billable resolution
+            'billable_type' => 'App\Models\User',
+            'billable_id' => null,
+        ];
+        
+        // تسجيل المعلومات المستخرجة للمراجعة
+        \Log::info('Extracted metadata:', [
+            'type' => $type,
+            'customer_id' => $customerId,
+            'email' => $email,
+            'subscription_id' => $subscriptionId,
+            'product_name' => $productName,
+            'amount' => $amount,
+            'price_status' => $priceStatus,
+            'status' => $status,
+            'metadata_keys' => array_keys($allMetadata)
+        ]);
+        
+        return $extractedMetadata;
     }
 
     /**
      * Resolve the billable from the payload.
      *
-     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $metadata
      * @return \Danestves\LaravelPolar\Billable
      *
      * @throws InvalidMetadataPayload
      */
-    private function resolveBillable(array $payload) // @phpstan-ignore-line return.trait - Billable is used in the user final code
+    private function resolveBillable(array $metadata) // @phpstan-ignore-line return.trait - Billable is used in the user final code
     {
-        $customerMetadata = $payload['customer']['metadata'] ?? null;
-
-        if (!isset($customerMetadata) || !is_array($customerMetadata) || !isset($customerMetadata['billable_id'], $customerMetadata['billable_type'])) {
-            throw new InvalidMetadataPayload();
+        $customerId = $metadata['customer_id'];
+        $email = $metadata['email'];
+        $customerMetadata = $metadata['customer_metadata'];
+        
+        // تسجيل المعلومات المستخرجة
+        \Log::info('Resolved billable data:', [
+            'customer_id' => $customerId,
+            'email' => $email,
+            'has_metadata' => !empty($customerMetadata),
+            'metadata_keys' => array_keys($customerMetadata)
+        ]);
+        
+        // التحقق من وجود البيانات المطلوبة
+        if ($customerId && $email) {
+            // البحث عن المستخدم باستخدام البريد الإلكتروني أو customer_id
+            $user = \App\Models\User::where('email', $email)->first();
+            
+            if ($user) {
+                $billableId = $user->id;
+                $billableType = 'App\Models\User';
+                
+                \Log::info('Found user for billing:', [
+                    'email' => $email,
+                    'user_id' => $billableId,
+                    'customer_id' => $customerId
+                ]);
+                
+                return $this->findOrCreateCustomer(
+                    $billableId,
+                    $billableType,
+                    $customerId,
+                );
+            } else {
+                \Log::warning('User not found for email:', ['email' => $email]);
+            }
         }
-
-        return $this->findOrCreateCustomer(
-            $customerMetadata['billable_id'],
-            (string) $customerMetadata['billable_type'],
-            (string) $payload['customer_id'],
+        
+        // الرجوع إلى الطريقة القديمة إذا لم تنجح الطريقة الجديدة
+        if (!empty($customerMetadata['billable_id']) && !empty($customerMetadata['billable_type'])) {
+            \Log::info('Using legacy metadata approach');
+            
+            return $this->findOrCreateCustomer(
+                $customerMetadata['billable_id'],
+                (string) $customerMetadata['billable_type'],
+                (string) $customerId,
+            );
+        }
+        
+        // إذا فشل كل شيء، رمي استثناء
+        throw new InvalidMetadataPayload(
+            'Unable to determine billable: missing email/customer_id or legacy metadata. ' .
+            'Available data: ' . json_encode([
+                'has_customer_id' => !empty($customerId),
+                'has_email' => !empty($email),
+                'has_legacy_metadata' => !empty($customerMetadata),
+                'customer_id' => $customerId,
+                'email' => $email
+            ])
         );
+    }
+
+    /**
+     * استخراج قيمة من المصفوفة باستخدام مسار نقطي
+     */
+    private function extractValue(array $data, string $path)
+    {
+        $keys = explode('.', $path);
+        $current = $data;
+        
+        foreach ($keys as $key) {
+            if (!is_array($current) || !isset($current[$key])) {
+                return null;
+            }
+            $current = $current[$key];
+        }
+        
+        return $current;
+    }
+
+
+    /**
+     * دالة مساعدة لطباعة المسارات المكتشفة
+     */
+    private function logDiscoveredPaths(array $payload)
+    {
+        $importantValues = $this->extractImportantValues($payload);
+        
+        \Log::info('Discovered paths:', $importantValues);
+        
+        // طباعة المسارات بشكل مفصل
+        foreach ($importantValues as $key => $data) {
+            if ($key === 'emails') {
+                foreach ($data as $emailData) {
+                    \Log::info("Email found at: {$emailData['path']} = {$emailData['email']}");
+                }
+            } else {
+                foreach ($data['paths'] as $path) {
+                    \Log::info("{$data['type']} value '{$data['value']}' found at: $path");
+                }
+            }
+        }
     }
 
     /**
@@ -279,3 +535,4 @@ class ProcessWebhook extends ProcessWebhookJob
         return LaravelPolar::$orderModel::firstWhere('polar_id', $orderId);
     }
 }
+?>

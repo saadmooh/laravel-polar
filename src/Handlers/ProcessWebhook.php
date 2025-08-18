@@ -27,9 +27,13 @@ class ProcessWebhook extends ProcessWebhookJob
 {
     public function handle(): void
     {
+       
         $decoded = json_decode($this->webhookCall, true);
+        $payload = $decoded['payload'];
+        $type = $payload['type'];
+        $data = $payload['data'];
         // استخراج البيانات باستخدام extractMetadata بدلاً من $payload و $data
-        $metadata = $this->extractMetadata($decoded);
+        $metadata = $this->extractMetadata($payload);
         $type = $metadata['type'] ?? 'unknown';
 
         WebhookReceived::dispatch($decoded['payload'] ?? $decoded);
@@ -482,103 +486,6 @@ class ProcessWebhook extends ProcessWebhookJob
         return $current;
     }
 
-    /**
-     * البحث عن قيمة محددة في كامل الـ JSON بشكل ديناميكي
-     */
-    private function findValueInPayload(array $payload, $targetValue, string $context = '')
-    {
-        $paths = [];
-        
-        foreach ($payload as $key => $value) {
-            $currentPath = $context ? "$context.$key" : $key;
-            
-            if (is_array($value)) {
-                // البحث المتداخل
-                $nestedPaths = $this->findValueInPayload($value, $targetValue, $currentPath);
-                $paths = array_merge($paths, $nestedPaths);
-            } elseif ($value === $targetValue) {
-                $paths[] = $currentPath;
-            }
-        }
-        
-        return $paths;
-    }
-
-    /**
-     * استخراج جميع القيم المهمة من الـ payload
-     */
-    private function extractImportantValues(array $payload)
-    {
-        $importantValues = [];
-        
-        // القيم المطلوبة للبحث عنها
-        $targetValues = [
-            'db70248c-cf27-4f06-bb6a-f8f4990c3d25', // Customer ID
-            'saadmoooooha2000@gmail.com', // Email
-            0 // Amount (من الـ JSON المقدم)
-        ];
-        
-        foreach ($targetValues as $value) {
-            $paths = $this->findValueInPayload($payload, $value);
-            if (!empty($paths)) {
-                $importantValues[$value] = [
-                    'value' => $value,
-                    'paths' => $paths,
-                    'type' => $this->determineValueType($value)
-                ];
-            }
-        }
-        
-        // البحث عن البريد الإلكتروني بنمط
-        $emailPaths = $this->findEmailPaths($payload);
-        if (!empty($emailPaths)) {
-            $importantValues['emails'] = $emailPaths;
-        }
-        
-        return $importantValues;
-    }
-
-    /**
-     * البحث عن مسارات البريد الإلكتروني
-     */
-    private function findEmailPaths(array $payload, string $context = '')
-    {
-        $emailPaths = [];
-        
-        foreach ($payload as $key => $value) {
-            $currentPath = $context ? "$context.$key" : $key;
-            
-            if (is_array($value)) {
-                $nestedPaths = $this->findEmailPaths($value, $currentPath);
-                $emailPaths = array_merge($emailPaths, $nestedPaths);
-            } elseif (is_string($value) && filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                $emailPaths[] = [
-                    'path' => $currentPath,
-                    'email' => $value
-                ];
-            }
-        }
-        
-        return $emailPaths;
-    }
-
-    /**
-     * تحديد نوع القيمة
-     */
-    private function determineValueType($value)
-    {
-        if (is_string($value)) {
-            if (filter_var($value, FILTER_VALIDATE_EMAIL)) {
-                return 'email';
-            } elseif (preg_match('/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89aAbB][a-f0-9]{3}-[a-f0-9]{12}$/', $value)) {
-                return 'uuid';
-            }
-            return 'string';
-        } elseif (is_numeric($value)) {
-            return 'number';
-        }
-        return 'unknown';
-    }
 
     /**
      * دالة مساعدة لطباعة المسارات المكتشفة

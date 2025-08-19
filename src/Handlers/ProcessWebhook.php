@@ -27,12 +27,10 @@ class ProcessWebhook extends ProcessWebhookJob
 {
     public function handle(): void
     {
-       
         $decoded = json_decode($this->webhookCall, true);
         $payload = $decoded['payload'];
-        $type = $payload['type'];
-        $data = $payload['data'];
-        // استخراج البيانات باستخدام extractMetadata بدلاً من $payload و $data
+        
+        // استخراج البيانات باستخدام extractMetadata
         $metadata = $this->extractMetadata($payload);
         $type = $metadata['type'] ?? 'unknown';
 
@@ -67,21 +65,25 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($metadata);
 
-        $order = $billable->orders()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
-            'polar_id' => $metadata['subscription_id'] ?? null,
+        $order = $billable->orders()->create([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'polar_id' => $metadata['order_id'] ?? $metadata['subscription_id'],
             'status' => $metadata['status'] ?? 'unknown',
             'amount' => $metadata['amount'] ?? 0,
-            'tax_amount' => $metadata['tax_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
-            'refunded_amount' => $metadata['refunded_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
-            'refunded_tax_amount' => $metadata['refunded_tax_amount'] ?? 0, // غير موجود في الـ JSON، قيمة افتراضية
+            'tax_amount' => $metadata['tax_amount'] ?? 0,
+            'refunded_amount' => $metadata['refunded_amount'] ?? 0,
+            'refunded_tax_amount' => $metadata['refunded_tax_amount'] ?? 0,
             'currency' => $metadata['currency'] ?? 'usd',
-            'billing_reason' => $metadata['billing_reason'] ?? null, // غير موجود في الـ JSON، قيمة افتراضية
-            'customer_id' => $metadata['customer_id'] ?? null,
-            'product_id' => $metadata['product_id'] ?? null,
-            'ordered_at' => Carbon::make($metadata['started_at'] ?? null),
+            'billing_reason' => $metadata['billing_reason'] ?? null,
+            'customer_id' => $metadata['customer_id'],
+            'product_id' => $metadata['product_id'],
+            'product_price_id' => $metadata['product_price_id'],
+            'refunded_at' => null,
+            'ordered_at' => Carbon::make($metadata['started_at'] ?? $metadata['created_at'] ?? now()),
         ]);
 
-        OrderCreated::dispatch($billable, $order, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        OrderCreated::dispatch($billable, $order, $metadata);
     }
 
     /**
@@ -93,20 +95,30 @@ class ProcessWebhook extends ProcessWebhookJob
     {
         $billable = $this->resolveBillable($metadata);
 
-        if (!($order = $this->findOrder($metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$orderModel) {
+        if (!($order = $this->findOrder($metadata['order_id'] ?? $metadata['subscription_id'] ?? '')) instanceof LaravelPolar::$orderModel) {
             return;
         }
 
         $status = $metadata['status'] ?? 'unknown';
         $isRefunded = $status === OrderStatus::Refunded->value || $status === OrderStatus::PartiallyRefunded->value;
 
-        $order->sync([
-            ...$metadata,
+        $order->update([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
             'status' => $status,
-            'refunded_at' => $isRefunded ? Carbon::make($metadata['canceled_at'] ?? null) : null,
+            'amount' => $metadata['amount'] ?? $order->amount,
+            'tax_amount' => $metadata['tax_amount'] ?? $order->tax_amount,
+            'refunded_amount' => $metadata['refunded_amount'] ?? $order->refunded_amount,
+            'refunded_tax_amount' => $metadata['refunded_tax_amount'] ?? $order->refunded_tax_amount,
+            'currency' => $metadata['currency'] ?? $order->currency,
+            'billing_reason' => $metadata['billing_reason'] ?? $order->billing_reason,
+            'customer_id' => $metadata['customer_id'] ?? $order->customer_id,
+            'product_id' => $metadata['product_id'] ?? $order->product_id,
+            'product_price_id' => $metadata['product_price_id'] ?? $order->product_price_id,
+            'refunded_at' => $isRefunded ? Carbon::make($metadata['canceled_at'] ?? $metadata['refunded_at'] ?? now()) : $order->refunded_at,
         ]);
 
-        OrderUpdated::dispatch($billable, $order, $metadata, $isRefunded); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        OrderUpdated::dispatch($billable, $order, $metadata, $isRefunded);
     }
 
     /**
@@ -116,24 +128,27 @@ class ProcessWebhook extends ProcessWebhookJob
      */
     private function handleSubscriptionCreated(array $metadata): void
     {
-        // الحصول على billable باستخدام resolveBillable
         $billable = $this->resolveBillable($metadata);
         
-        // إنشاء الاشتراك
-        $subscription = $billable->subscriptions()->create([ // @phpstan-ignore-line class.notFound - the property is found in the billable model
-            'type' => $metadata['subscription_metadata']['subscription_type'] ?? 'default',
+        $subscription = $billable->subscriptions()->create([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'type' => $metadata['subscription_type'] ?? 'default',
             'polar_id' => $metadata['subscription_id'],
             'status' => $metadata['status'],
             'product_id' => $metadata['product_id'],
+            'price_id' => $metadata['price_id'],
             'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+            'trial_ends_at' => $metadata['trial_ends_at'] ? Carbon::make($metadata['trial_ends_at']) : null,
             'ends_at' => $metadata['ends_at'] ? Carbon::make($metadata['ends_at']) : null,
         ]);
 
-        if ($billable->customer->polar_id === null) { // @phpstan-ignore-line property.notFound - the property is found in the billable model
-            $billable->customer->update(['polar_id' => $metadata['customer_id']]); // @phpstan-ignore-line property.notFound - the property is found in the billable model
+        // تحديث polar_id للعميل إذا لم يكن موجوداً
+        if ($billable->customer && $billable->customer->polar_id === null) {
+            $billable->customer->update(['polar_id' => $metadata['customer_id']]);
         }
 
-        SubscriptionCreated::dispatch($billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        SubscriptionCreated::dispatch($billable, $subscription, $metadata);
     }
 
     /**
@@ -147,9 +162,20 @@ class ProcessWebhook extends ProcessWebhookJob
             return;
         }
 
-        $subscription->sync($metadata);
+        $billable = $this->resolveBillable($metadata);
 
-        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        $subscription->update([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'status' => $metadata['status'],
+            'product_id' => $metadata['product_id'],
+            'price_id' => $metadata['price_id'],
+            'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+            'trial_ends_at' => $metadata['trial_ends_at'] ? Carbon::make($metadata['trial_ends_at']) : null,
+            'ends_at' => $metadata['ends_at'] ? Carbon::make($metadata['ends_at']) : null,
+        ]);
+
+        SubscriptionUpdated::dispatch($subscription->billable, $subscription, $metadata);
     }
 
     /**
@@ -163,9 +189,18 @@ class ProcessWebhook extends ProcessWebhookJob
             return;
         }
 
-        $subscription->sync($metadata);
+        $billable = $this->resolveBillable($metadata);
 
-        SubscriptionActive::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        $subscription->update([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'status' => $metadata['status'],
+            'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+            'trial_ends_at' => $metadata['trial_ends_at'] ? Carbon::make($metadata['trial_ends_at']) : null,
+            'ends_at' => $metadata['ends_at'] ? Carbon::make($metadata['ends_at']) : null,
+        ]);
+
+        SubscriptionActive::dispatch($subscription->billable, $subscription, $metadata);
     }
 
     /**
@@ -179,9 +214,17 @@ class ProcessWebhook extends ProcessWebhookJob
             return;
         }
 
-        $subscription->sync($metadata);
+        $billable = $this->resolveBillable($metadata);
 
-        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        $subscription->update([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'status' => $metadata['status'],
+            'ends_at' => $metadata['canceled_at'] ? Carbon::make($metadata['canceled_at']) : null,
+            'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+        ]);
+
+        SubscriptionCanceled::dispatch($subscription->billable, $subscription, $metadata);
     }
 
     /**
@@ -195,9 +238,17 @@ class ProcessWebhook extends ProcessWebhookJob
             return;
         }
 
-        $subscription->sync($metadata);
+        $billable = $this->resolveBillable($metadata);
 
-        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        $subscription->update([
+            'billable_type' => $metadata['billable_type'],
+            'billable_id' => $metadata['billable_id'],
+            'status' => 'revoked',
+            'ends_at' => now(),
+            'current_period_end' => $metadata['current_period_end'] ? Carbon::make($metadata['current_period_end']) : null,
+        ]);
+
+        SubscriptionRevoked::dispatch($subscription->billable, $subscription, $metadata);
     }
 
     /**
@@ -208,8 +259,7 @@ class ProcessWebhook extends ProcessWebhookJob
     private function handleBenefitGrantCreated(array $metadata): void
     {
         $billable = $this->resolveBillable($metadata);
-
-        BenefitGrantCreated::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantCreated::dispatch($billable, $metadata);
     }
 
     /**
@@ -220,8 +270,7 @@ class ProcessWebhook extends ProcessWebhookJob
     private function handleBenefitGrantUpdated(array $metadata): void
     {
         $billable = $this->resolveBillable($metadata);
-
-        BenefitGrantUpdated::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantUpdated::dispatch($billable, $metadata);
     }
 
     /**
@@ -232,170 +281,269 @@ class ProcessWebhook extends ProcessWebhookJob
     private function handleBenefitGrantRevoked(array $metadata): void
     {
         $billable = $this->resolveBillable($metadata);
-
-        BenefitGrantRevoked::dispatch($billable, $metadata); // @phpstan-ignore-line argument.type - Billable is a instance of a model
+        BenefitGrantRevoked::dispatch($billable, $metadata);
     }
 
     /**
-     * استخراج البيانات المهمة من الـ payload بطريقة دقيقة بناءً على الـ JSON المقدم
+     * استخراج البيانات المهمة من الـ payload بطريقة دقيقة
      * 
      * @param array $payload
      * @return array
      */
     private function extractMetadata(array $payload): array
-    {
-        // البيانات الأساسية من المستوى الأعلى
-        $data = $payload['data'] ?? $payload['payload'] ?? $payload;
+{
+    // البيانات الأساسية من المستوى الأعلى
+    $data = $payload['data'] ?? $payload['payload'] ?? $payload;
+    
+    // استخراج نوع الحدث
+    $type = $this->extractValue($payload, 'type') ?? 'unknown';
+    
+    // استخراج معرف العميل
+    $customerId = $this->extractValue($data, 'customer_id') ?? 
+                  $this->extractValue($data, 'customer.id') ?? 
+                  $this->extractValue($data, 'user_id') ?? 
+                  $this->extractValue($data, 'user.id') ?? null;
+    
+    // استخراج البريد الإلكتروني
+    $email = $this->extractValue($data, 'customer.email') ?? 
+             $this->extractValue($data, 'user.email') ?? null;
+    Log::info($email);
+    // استخراج معلومات المنتج
+    $productId = $this->extractValue($data, 'product_id') ?? 
+                 $this->extractValue($data, 'product.id') ?? null;
+    
+    $productName = $this->extractValue($data, 'product.name') ?? 'unknown';
+    
+    // استخراج معلومات السعر
+    $priceId = $this->extractValue($data, 'price_id') ?? 
+               $this->extractValue($data, 'price.id') ?? null;
+    
+    $amount = $this->extractValue($data, 'amount') ?? 0;
+    
+    $currency = $this->extractValue($data, 'currency') ?? 'usd';
+    
+    // استخراج metadata من مصادر مختلفة
+    $subscriptionMetadata = $this->extractValue($data, 'metadata') ?? [];
+    $customerMetadata = $this->extractValue($data, 'customer.metadata') ?? [];
+    $productMetadata = $this->extractValue($data, 'product.metadata') ?? [];
+    
+    // دمج جميع metadata
+    $allMetadata = array_merge($subscriptionMetadata, $customerMetadata, $productMetadata);
+    
+    // استخراج معلومات الاشتراك
+    $subscriptionId = $this->extractValue($data, 'id') ?? null;
+    $status = $this->extractValue($data, 'status') ?? 'unknown';
+    $recurringInterval = $this->extractValue($data, 'recurring_interval') ?? null;
+    
+    // استخراج التواريخ المهمة
+    $createdAt = $this->extractValue($data, 'created_at') ?? null;
+    $modifiedAt = $this->extractValue($data, 'modified_at') ?? null;
+    $currentPeriodStart = $this->extractValue($data, 'current_period_start') ?? null;
+    $currentPeriodEnd = $this->extractValue($data, 'current_period_end') ?? null;
+    $startedAt = $this->extractValue($data, 'started_at') ?? null;
+    $endsAt = $this->extractValue($data, 'ends_at') ?? null;
+    $endedAt = $this->extractValue($data, 'ended_at') ?? null;
+    $canceledAt = $this->extractValue($data, 'canceled_at') ?? null;
+    
+    // معلومات إضافية للاشتراك
+    $checkoutId = $this->extractValue($data, 'checkout_id') ?? null;
+    $cancelAtPeriodEnd = $this->extractValue($data, 'cancel_at_period_end') ?? false;
+    $customerCancellationReason = $this->extractValue($data, 'customer_cancellation_reason') ?? null;
+    $customerCancellationComment = $this->extractValue($data, 'customer_cancellation_comment') ?? null;
+    
+    // معلومات المنظمة
+    $organizationId = $this->extractValue($data, 'customer.organization_id') ?? 
+                     $this->extractValue($data, 'product.organization_id') ?? null;
+    
+    // معلومات العنوان
+    $billingAddress = $this->extractValue($data, 'customer.billing_address') ?? [];
+    $country = $this->extractValue($billingAddress, 'country') ?? null;
+    
+    // تحديد نوع السعر
+    $priceType = $this->extractValue($data, 'price.type') ?? 
+                 $this->extractValue($data, 'price.amount_type') ?? 'unknown';
+    
+    // تحديد حالة السعر من metadata
+    $priceStatus = $this->extractValue($allMetadata, 'price_status') ?? 
+                   ($amount == 0 ? 'free' : 'paid');
+    
+    // استخراج معلومات العميل الإضافية
+    $customerCreatedAt = $this->extractValue($data, 'customer.created_at') ?? null;
+    $customerModifiedAt = $this->extractValue($data, 'customer.modified_at') ?? null;
+    $customerDeletedAt = $this->extractValue($data, 'customer.deleted_at') ?? null;
+    
+    // استخراج معلومات المنتج الإضافية
+    $productDescription = $this->extractValue($data, 'product.description') ?? null;
+    $productIsRecurring = $this->extractValue($data, 'product.is_recurring') ?? null;
+    $productIsArchived = $this->extractValue($data, 'product.is_archived') ?? null;
+    $productCreatedAt = $this->extractValue($data, 'product.created_at') ?? null;
+    $productModifiedAt = $this->extractValue($data, 'product.modified_at') ?? null;
+    $product_price_id =  $this->extractValue($data, 'product_price.id') ?? null;
+    // استخراج معلومات السعر الإضافية
+    $priceIsArchived = $this->extractValue($data, 'price.is_archived') ?? null;
+    $priceCreatedAt = $this->extractValue($data, 'price.created_at') ?? null;
+    $priceModifiedAt = $this->extractValue($data, 'price.modified_at') ?? null;
+    $priceRecurringInterval = $this->extractValue($data, 'price.recurring_interval') ?? null;
+    
+    // استخراج معلومات العنوان التفصيلية
+    $billingAddressLine1 = $this->extractValue($billingAddress, 'line1') ?? null;
+    $billingAddressLine2 = $this->extractValue($billingAddress, 'line2') ?? null;
+    $billingAddressPostalCode = $this->extractValue($billingAddress, 'postal_code') ?? null;
+    $billingAddressCity = $this->extractValue($billingAddress, 'city') ?? null;
+    $billing_reason = $this->extractValue($data, 'billing_reason') ?? null;
+    $billingAddressState = $this->extractValue($billingAddress, 'state') ?? null;
+     $user = \App\Models\User::where('email', $email)->first();
+    $billable_id = $user->id;
+    $trial_ends_at =   null;
+           
+         
+    $extractedMetadata = [
+        // نوع الحدث
+        'type' => $type,
         
-        // استخراج نوع الحدث
-        $type = $this->extractValue($payload, 'type') ?? 'unknown';
+        // معرفات العميل
+        'customer_id' => $customerId,
+        'user_id' => $this->extractValue($data, 'user_id') ?? null,
+        'email' => $email,
         
-        // استخراج معرف العميل
-        $customerId = $this->extractValue($data, 'customer_id') ?? 
-                      $this->extractValue($data, 'customer.id') ?? 
-                      $this->extractValue($data, 'user_id') ?? 
-                      $this->extractValue($data, 'user.id') ?? null;
+        // معرفات الاشتراك والمنتج
+        'subscription_id' => $subscriptionId,
+        'product_id' => $productId,
+        'product_name' => $productName,
+        'price_id' => $priceId,
         
-        // استخراج البريد الإلكتروني
-        $email = $this->extractValue($data, 'customer.email') ?? 
-                 $this->extractValue($data, 'user.email') ?? null;
+        // معلومات السعر والفوترة
+        'amount' => $amount,
+        'currency' => $currency,
+        'price_type' => $priceType,
+        'price_status' => $priceStatus,
+        'recurring_interval' => $recurringInterval,
         
-        // استخراج معلومات المنتج
-        $productId = $this->extractValue($data, 'product_id') ?? 
-                     $this->extractValue($data, 'product.id') ?? null;
+        // حالة الاشتراك
+        'status' => $status,
+        'is_active' => $status === 'active',
+        'is_free' => $amount == 0 || $priceStatus === 'free',
+        'cancel_at_period_end' => $cancelAtPeriodEnd,
+        'is_canceled' => !empty($canceledAt),
         
-        $productName = $this->extractValue($data, 'product.name') ?? 'unknown';
+        // التواريخ الرئيسية
+        'created_at' => $createdAt,
+        'modified_at' => $modifiedAt,
+        'current_period_start' => $currentPeriodStart,
+        'current_period_end' => $currentPeriodEnd,
+        'started_at' => $startedAt,
+        'ends_at' => $endsAt,
+        'ended_at' => $endedAt,
+        'canceled_at' => $canceledAt,
+        "trial_ends_at"=> $trial_ends_at,
         
-        // استخراج معلومات السعر
-        $priceId = $this->extractValue($data, 'price_id') ?? 
-                   $this->extractValue($data, 'price.id') ?? null;
+        // معلومات الإلغاء
+        'customer_cancellation_reason' => $customerCancellationReason,
+        'customer_cancellation_comment' => $customerCancellationComment,
         
-        $amount = $this->extractValue($data, 'amount') ?? 0;
+        // معرفات إضافية
+        'checkout_id' => $checkoutId,
+        'organization_id' => $organizationId,
         
-        $currency = $this->extractValue($data, 'currency') ?? 'usd';
+        // معلومات جغرافية وعنوان
+        'country' => $country,
+        'billing_address' => $billingAddress,
+        'billing_address_line1' => $billingAddressLine1,
+        'billing_address_line2' => $billingAddressLine2,
+        'billing_address_postal_code' => $billingAddressPostalCode,
+        'billing_address_city' => $billingAddressCity,
+        'billing_address_state' => $billingAddressState,
+        'billing_reason' =>$billing_reason,
         
-        // استخراج metadata من مصادر مختلفة
-        $subscriptionMetadata = $this->extractValue($data, 'metadata') ?? [];
-        $customerMetadata = $this->extractValue($data, 'customer.metadata') ?? [];
-        $productMetadata = $this->extractValue($data, 'product.metadata') ?? [];
+        // metadata مدمجة
+        'metadata' => $allMetadata,
+        'subscription_metadata' => $subscriptionMetadata,
+        'customer_metadata' => $customerMetadata,
+        'product_metadata' => $productMetadata,
         
-        // دمج جميع metadata
-        $allMetadata = array_merge($subscriptionMetadata, $customerMetadata, $productMetadata);
+        // معلومات الخصم
+        'has_discount' => !empty($this->extractValue($data, 'discount_id')),
+        'discount_id' => $this->extractValue($data, 'discount_id') ?? null,
+        'discount' => $this->extractValue($data, 'discount') ?? null,
         
-        // استخراج معلومات الاشتراك
-        $subscriptionId = $this->extractValue($data, 'id') ?? null;
-        $status = $this->extractValue($data, 'status') ?? 'unknown';
-        $recurringInterval = $this->extractValue($data, 'recurring_interval') ?? null;
+        // الحقول المخصصة
+        'custom_fields' => $this->extractValue($data, 'custom_field_data') ?? [],
         
-        // استخراج التواريخ المهمة
-        $currentPeriodStart = $this->extractValue($data, 'current_period_start') ?? null;
-        $currentPeriodEnd = $this->extractValue($data, 'current_period_end') ?? null;
-        $startedAt = $this->extractValue($data, 'started_at') ?? null;
-        $endsAt = $this->extractValue($data, 'ends_at') ?? null;
-        $canceledAt = $this->extractValue($data, 'canceled_at') ?? null;
+        // معلومات المستخدم التفصيلية
+        'user_public_name' => $this->extractValue($data, 'user.public_name') ?? null,
+        'user_avatar_url' => $this->extractValue($data, 'user.avatar_url') ?? null,
+        'user_github_username' => $this->extractValue($data, 'user.github_username') ?? null,
         
-        // معلومات إضافية
-        $checkoutId = $this->extractValue($data, 'checkout_id') ?? null;
-        $organizationId = $this->extractValue($data, 'customer.organization_id') ?? 
-                         $this->extractValue($data, 'product.organization_id') ?? null;
+        // معلومات العميل التفصيلية
+        'customer_name' => $this->extractValue($data, 'customer.name') ?? null,
+        'customer_avatar_url' => $this->extractValue($data, 'customer.avatar_url') ?? null,
+        'customer_email_verified' => $this->extractValue($data, 'customer.email_verified') ?? false,
+        'customer_external_id' => $this->extractValue($data, 'customer.external_id') ?? null,
+        'customer_tax_id' => $this->extractValue($data, 'customer.tax_id') ?? null,
+        'customer_created_at' => $customerCreatedAt,
+        'customer_modified_at' => $customerModifiedAt,
+        'customer_deleted_at' => $customerDeletedAt,
         
-        // معلومات العنوان
-        $billingAddress = $this->extractValue($data, 'customer.billing_address') ?? [];
-        $country = $this->extractValue($billingAddress, 'country') ?? null;
+        // معلومات المنتج التفصيلية
+        'product_description' => $productDescription,
+        'product_is_recurring' => $productIsRecurring,
+        'product_is_archived' => $productIsArchived,
+        'product_recurring_interval' => $this->extractValue($data, 'product.recurring_interval') ?? null,
+        'product_created_at' => $productCreatedAt,
+        'product_modified_at' => $productModifiedAt,
         
-        // تحديد نوع السعر
-        $priceType = $this->extractValue($data, 'price.amount_type') ?? 
-                     $this->extractValue($data, 'price.type') ?? 'unknown';
+        // معلومات السعر التفصيلية
+        'price_is_archived' => $priceIsArchived,
+        'price_created_at' => $priceCreatedAt,
+        'price_modified_at' => $priceModifiedAt,
+        'price_recurring_interval' => $priceRecurringInterval,
+        'price_product_id' => $this->extractValue($data, 'price.product_id') ?? null,
         
-        // تحديد حالة السعر من metadata
-        $priceStatus = $this->extractValue($allMetadata, 'price_status') ?? 
-                       ($amount == 0 ? 'free' : 'paid');
+        // مصفوفات إضافية
+        'product_prices' => $this->extractValue($data, 'product.prices') ?? [],
+        'product_price_id'=>$product_price_id,
+        'product_benefits' => $this->extractValue($data, 'product.benefits') ?? [],
+        'product_medias' => $this->extractValue($data, 'product.medias') ?? [],
+        'product_attached_custom_fields' => $this->extractValue($data, 'product.attached_custom_fields') ?? [],
+        'prices' => $this->extractValue($data, 'prices') ?? [],
+        'meters' => $this->extractValue($data, 'meters') ?? [],
         
-        $extractedMetadata = [
-            // نوع الحدث
-            'type' => $type,
-            // معرفات العميل
-            'customer_id' => $customerId,
-            'user_id' => $this->extractValue($data, 'user_id') ?? null,
-            'email' => $email,
-            
-            // معرفات الاشتراك والمنتج
-            'subscription_id' => $subscriptionId,
-            'product_id' => $productId,
-            'product_name' => $productName,
-            'price_id' => $priceId,
-            
-            // معلومات السعر والفوترة
-            'amount' => $amount,
-            'currency' => $currency,
-            'price_type' => $priceType,
-            'price_status' => $priceStatus,
-            'recurring_interval' => $recurringInterval,
-            
-            // حالة الاشتراك
-            'status' => $status,
-            'is_active' => $status === 'active',
-            'is_free' => $amount == 0 || $priceStatus === 'free',
-            
-            // التواريخ
-            'current_period_start' => $currentPeriodStart,
-            'current_period_end' => $currentPeriodEnd,
-            'started_at' => $startedAt,
-            'ends_at' => $endsAt,
-            'canceled_at' => $canceledAt,
-            'is_canceled' => !empty($canceledAt),
-            
-            // معرفات إضافية
-            'checkout_id' => $checkoutId,
-            'organization_id' => $organizationId,
-            
-            // معلومات جغرافية
-            'country' => $country,
-            'billing_address' => $billingAddress,
-            
-            // metadata مدمجة
-            'metadata' => $allMetadata,
-            'subscription_metadata' => $subscriptionMetadata,
-            'customer_metadata' => $customerMetadata,
-            'product_metadata' => $productMetadata,
-            
-            // معلومات إضافية
-            'has_discount' => !empty($this->extractValue($data, 'discount_id')),
-            'discount_id' => $this->extractValue($data, 'discount_id') ?? null,
-            'custom_fields' => $this->extractValue($data, 'custom_field_data') ?? [],
-            
-            // معلومات المستخدم
-            'user_public_name' => $this->extractValue($data, 'user.public_name') ?? null,
-            'user_avatar_url' => $this->extractValue($data, 'user.avatar_url') ?? null,
-            'user_github_username' => $this->extractValue($data, 'user.github_username') ?? null,
-            
-            // معلومات العميل
-            'customer_name' => $this->extractValue($data, 'customer.name') ?? null,
-            'customer_avatar_url' => $this->extractValue($data, 'customer.avatar_url') ?? null,
-            'customer_email_verified' => $this->extractValue($data, 'customer.email_verified') ?? false,
-            'customer_external_id' => $this->extractValue($data, 'customer.external_id') ?? null,
-            'customer_tax_id' => $this->extractValue($data, 'customer.tax_id') ?? null,
-            
-            // للاستخدام في الـ billable resolution
-            'billable_type' => 'App\Models\User',
-            'billable_id' => null,
-        ];
+        // للاستخدام في الـ billable resolution
+        'billable_type' => 'App\Models\User',
+         "billable_id" =>$billable_id,
         
-        // تسجيل المعلومات المستخرجة للمراجعة
-        \Log::info('Extracted metadata:', [
-            'type' => $type,
-            'customer_id' => $customerId,
-            'email' => $email,
-            'subscription_id' => $subscriptionId,
-            'product_name' => $productName,
-            'amount' => $amount,
-            'price_status' => $priceStatus,
-            'status' => $status,
-            'metadata_keys' => array_keys($allMetadata)
-        ]);
         
-        return $extractedMetadata;
-    }
+        // معلومات إضافية للتحليل
+        'has_custom_fields' => !empty($this->extractValue($data, 'custom_field_data')),
+        'has_benefits' => !empty($this->extractValue($data, 'product.benefits')),
+        'has_medias' => !empty($this->extractValue($data, 'product.medias')),
+        'is_product_archived' => $productIsArchived === true,
+        'is_price_archived' => $priceIsArchived === true,
+        'customer_has_tax_id' => !empty($this->extractValue($data, 'customer.tax_id')),
+        'customer_has_external_id' => !empty($this->extractValue($data, 'customer.external_id')),
+        'user_has_github' => !empty($this->extractValue($data, 'user.github_username')),
+    ];
+    
+    // تسجيل المعلومات المستخرجة للمراجعة
+    \Log::info('Extracted metadata:', [
+        'type' => $type,
+        'customer_id' => $customerId,
+        'email' => $email,
+        'subscription_id' => $subscriptionId,
+        'product_name' => $productName,
+        'amount' => $amount,
+        'price_status' => $priceStatus,
+        'status' => $status,
+        'country' => $country,
+        'organization_id' => $organizationId,
+        'is_free' => $extractedMetadata['is_free'],
+        'cancel_at_period_end' => $cancelAtPeriodEnd,
+        'metadata_keys' => array_keys($allMetadata),
+        'total_extracted_fields' => count($extractedMetadata)
+    ]);
+    
+    return $extractedMetadata;
+}
 
     /**
      * Resolve the billable from the payload.
@@ -405,49 +553,38 @@ class ProcessWebhook extends ProcessWebhookJob
      *
      * @throws InvalidMetadataPayload
      */
-    private function resolveBillable(array $metadata) // @phpstan-ignore-line return.trait - Billable is used in the user final code
+    private function resolveBillable(array $metadata)
     {
         $customerId = $metadata['customer_id'];
         $email = $metadata['email'];
         $customerMetadata = $metadata['customer_metadata'];
         
-        // تسجيل المعلومات المستخرجة
-        \Log::info('Resolved billable data:', [
+        Log::info('Resolving billable:', [
             'customer_id' => $customerId,
             'email' => $email,
             'has_metadata' => !empty($customerMetadata),
-            'metadata_keys' => array_keys($customerMetadata)
         ]);
         
-        // التحقق من وجود البيانات المطلوبة
-        if ($customerId && $email) {
-            // البحث عن المستخدم باستخدام البريد الإلكتروني أو customer_id
+        // البحث بالبريد الإلكتروني أولاً
+        if ($email) {
             $user = \App\Models\User::where('email', $email)->first();
             
             if ($user) {
-                $billableId = $user->id;
-                $billableType = 'App\Models\User';
-                
-                \Log::info('Found user for billing:', [
+                Log::info('Found user by email:', [
                     'email' => $email,
-                    'user_id' => $billableId,
-                    'customer_id' => $customerId
+                    'user_id' => $user->id,
                 ]);
                 
                 return $this->findOrCreateCustomer(
-                    $billableId,
-                    $billableType,
+                    $user->id,
+                    'App\Models\User',
                     $customerId,
                 );
-            } else {
-                \Log::warning('User not found for email:', ['email' => $email]);
             }
         }
         
-        // الرجوع إلى الطريقة القديمة إذا لم تنجح الطريقة الجديدة
+        // الرجوع إلى metadata القديمة
         if (!empty($customerMetadata['billable_id']) && !empty($customerMetadata['billable_type'])) {
-            \Log::info('Using legacy metadata approach');
-            
             return $this->findOrCreateCustomer(
                 $customerMetadata['billable_id'],
                 (string) $customerMetadata['billable_type'],
@@ -455,20 +592,18 @@ class ProcessWebhook extends ProcessWebhookJob
             );
         }
         
-        // إذا فشل كل شيء، رمي استثناء
         throw new InvalidMetadataPayload(
-            'Unable to determine billable: missing email/customer_id or legacy metadata. ' .
+            'Unable to resolve billable: missing email or legacy metadata. ' .
             'Available data: ' . json_encode([
                 'has_customer_id' => !empty($customerId),
                 'has_email' => !empty($email),
-                'has_legacy_metadata' => !empty($customerMetadata),
                 'customer_id' => $customerId,
                 'email' => $email
             ])
         );
     }
 
-    /**
+  /**
      * استخراج قيمة من المصفوفة باستخدام مسار نقطي
      */
     private function extractValue(array $data, string $path)
@@ -488,34 +623,11 @@ class ProcessWebhook extends ProcessWebhookJob
 
 
     /**
-     * دالة مساعدة لطباعة المسارات المكتشفة
-     */
-    private function logDiscoveredPaths(array $payload)
-    {
-        $importantValues = $this->extractImportantValues($payload);
-        
-        \Log::info('Discovered paths:', $importantValues);
-        
-        // طباعة المسارات بشكل مفصل
-        foreach ($importantValues as $key => $data) {
-            if ($key === 'emails') {
-                foreach ($data as $emailData) {
-                    \Log::info("Email found at: {$emailData['path']} = {$emailData['email']}");
-                }
-            } else {
-                foreach ($data['paths'] as $path) {
-                    \Log::info("{$data['type']} value '{$data['value']}' found at: $path");
-                }
-            }
-        }
-    }
-
-    /**
      * Find or create a customer.
      *
      * @return \Danestves\LaravelPolar\Billable
      */
-    private function findOrCreateCustomer(int|string $billableId, string $billableType, string $customerId) // @phpstan-ignore-line return.trait - Billable is used in the user final code
+    private function findOrCreateCustomer(int|string $billableId, string $billableType, string $customerId)
     {
         return LaravelPolar::$customerModel::firstOrCreate([
             'billable_id' => $billableId,
